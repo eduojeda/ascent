@@ -1,0 +1,17 @@
+#include "mySAT.h"
+#include "ascent.h"
+
+/*Code*/
+
+pascal void SetupNumber(SpritePtr num)
+{
+	SetRect(&num->hotRect, 0,0,0,0);
+	num->task = &HandleNumber;
+	num->speed.h = 0;
+	num->speed.v = 0;
+	num->face = SATGetFace(4000);
+}
+
+pascal void HandleNumber(SpritePtr num)
+{
+}

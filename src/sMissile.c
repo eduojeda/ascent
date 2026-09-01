@@ -1,0 +1,229 @@
+#include "mySAT.h"
+#include <math.h>
+#include "ascent.h"
+
+/*Constants*/
+
+#define kMissileHeight		14
+#define kMissileWidth		25
+#define kMissileHPower		8
+#define kMissileVPower		10
+#define kMissileMass		10
+
+/*Globals*/
+
+extern Globals		g;
+SpritePtr			target;
+float				prevVSpeed;
+
+/*Code*/
+
+pascal void SetupMissile(SpritePtr missile)	
+{
+	SetRect(&missile->hotRect, 0, 0, kMissileWidth, kMissileHeight);
+	missile->speed.h = 0;
+	missile->speed.v = 0;
+	missile->task = &HandleMissile;
+	missile->hitTask = &HitTaskMissile;
+	missile->layer = kMissileLayer;
+	missile->mass = kMissileMass;
+	missile->pos.h = missile->position.h;
+	missile->pos.v = missile->position.v;
+	prevVSpeed = 0;
+}					
+
+pascal void HandleMissile(SpritePtr missile)
+{
+static short	counter = 0, faceIndex, smokeVOffset;
+static float	slope;
+	
+	prevVSpeed = missile->speed.v;
+	missile->speed.h += 0.5 * (missile->force.h/missile->mass);		//Accelerated movement
+	missile->speed.v = prevVSpeed + 0.5 * (missile->force.v/missile->mass);
+	missile->pos.h += missile->speed.h;
+	missile->pos.v += missile->speed.v;
+	missile->position.h = missile->pos.h;
+	missile->position.v = missile->pos.v;
+		
+	/* Target Tracking */
+	
+	//This code calculates the slope of a rect linking the missile and its target, 
+	//then adjusts it for the missile's horizonal speed so it remains proportional.
+	//(remember the increase in x is not 1, it's the missile's horizontal speed)
+	//Next, it calculates the exact force the missile's engine has to exert vertically
+	//so that the missile follows the slope calculated above, and limits the maximum
+	//vertical force the engines can put out so that things are fair for the target
+	
+	if(target != nil)		//Checks if the other ship is actually there
+	{
+		slope = ((target->pos.v - missile->pos.v)/(target->pos.h - missile->pos.h))*missile->speed.h;	
+		missile->force.v = (slope - prevVSpeed)*2*missile->mass;							
+		if(missile->force.v > kMissileVPower)
+			missile->force.v = kMissileVPower;
+		if(missile->force.v < -kMissileVPower)
+			missile->force.v = -kMissileVPower;	
+	}else
+	{
+		missile->speed.v = 0;	
+	}	
+	/*Old Target Tracker (MUCH less precise)
+	
+	if(missile->pos.h < target->pos.h)
+	{
+		missile->force.v = (target->pos.v - missile->pos.v);
+		if(missile->force.v > kMissileVPower)
+			missile->force.v = kMissileVPower;
+		if(missile->force.v < -kMissileVPower)
+			missile->force.v = -kMissileVPower;	
+	}	*/	
+
+	/* Face Selection */
+	//SmokeVoffset adjusts the smoke's creation spot so it is always close to the missile's exaust
+	if(missile->direction)
+	{
+		if(missile->speed.v < -9)
+		{
+			faceIndex = 0;
+			smokeVOffset = 19;
+		}else if (missile->speed.v < -3 && missile->speed.v >= -9)
+		{
+			faceIndex = 1;
+			smokeVOffset = 12;
+		}else if (missile->speed.v >= -3 && missile->speed.v <= 3)
+		{
+			faceIndex = 2;
+			smokeVOffset = 4;
+		}else if (missile->speed.v <= 9)
+		{
+			faceIndex = 3;
+			smokeVOffset = 4;
+		}else if (missile->speed.v > 9)
+		{
+			faceIndex = 4;
+			smokeVOffset = 0;
+		}
+	missile->face = g.missileFacingRight[faceIndex];
+	}
+	else		
+	{
+		if(missile->speed.v < -9)
+		{
+			faceIndex = 0;
+			smokeVOffset = 19;
+		}else if (missile->speed.v < -3 && missile->speed.v >= -9)
+		{
+			faceIndex = 1;
+			smokeVOffset = 12;
+		}else if (missile->speed.v >= -3 && missile->speed.v <= 3)
+		{
+			faceIndex = 2;
+			smokeVOffset = 4;
+		}else if (missile->speed.v <= 9)
+		{
+			faceIndex = 3;
+			smokeVOffset = 4;
+		}else if (missile->speed.v > 9)
+		{
+			faceIndex = 4;
+			smokeVOffset = 0;
+		}
+	missile->face = g.missileFacingLeft[faceIndex];
+	}
+	
+	/* Border Checks, smoke, etc. */
+	
+	if(missile->position.h > gSAT.offSizeH)				//Check if the missile hits a border
+	{
+		missile->task = nil;
+		missile->position.h = gSAT.offSizeH - 20;		//Move the missile so around half of its explosion is seen
+		Explode(missile, 8, 4, 5, 2, g.explosionSnd);	//Make an explosion
+	}	
+	if(missile->position.h < 0)			
+	{
+		missile->task = nil;
+		missile->position.h = -20;
+		Explode(missile, 8, 4, 5, 2, g.explosionSnd);
+	}	
+	if(missile->position.v > gSAT.offSizeV)	
+	{
+		missile->task = nil;
+		missile->position.v = gSAT.offSizeV - 20;
+		Explode(missile, 8, 4, 5, 2, g.explosionSnd);
+	}	
+	if(missile->position.v < 0)	
+	{
+		missile->task = nil;
+		missile->position.v = -20;
+		Explode(missile, 8, 4, 5, 2, g.explosionSnd);
+	}	
+	
+	if(counter == 3)								//This generates a cloud of smoke every other frame
+	{
+		if(missile->direction)
+		{
+			SATNewSprite(kSmokeKind, missile->position.h - 15, missile->position.v + smokeVOffset - 13, &SetupSmoke);
+		}else
+		{
+			SATNewSprite(kSmokeKind, missile->position.h + missile->hotRect.right, missile->position.v + smokeVOffset - 13, &SetupSmoke);
+		}
+	counter = 0;	
+	}	
+	counter++;
+}
+
+pascal void HitTaskMissile(SpritePtr missile, SpritePtr him)
+{
+SpritePtr explosion;
+
+	if(him == target || him->kind == kLaserGKind || him->kind == kBallKind)	//Explosions are only produced if "him" is one of the three kind of objects of the game that can be impacted by projectiles. This is a workaround to a SAT bug where projectiles would detonate against smoke, explosions, and such
+	{
+		him->shields -= (kMissileDamage + (SATRand(20)-SATRand(20)));		//Make a somewhat random amount of damage
+		DisplayShields();
+		missile->task = nil;												//Kill the missile
+		Explode(missile, 8, 4, 5, 2, g.explosionSnd);						//Make a nice fireball
+	}	
+	
+	if(him == target || him->kind == kBallKind)								//If the missile hit the target or the ball
+	{
+		him->speed.h += (missile->speed.h * missile->mass)/him->mass;		//Add the energy of the missile to the other object					
+		him->speed.v += (missile->speed.v * missile->mass)/him->mass;		
+	}											
+}	
+
+void ShootMissile(SpritePtr ship)								//This function fills those missile variables that depend on the attitude of the shooting ship (since that cant be done from SetupMissile)
+{
+SpritePtr	missile;
+
+	if(ship == g.leftShip && ship->kind == 1)					//Get a pointer to the target ship, also checks if the ship's SpritePtr is actually pointing to the ship or is just pointing to random trash
+		target = g.rightShip;			
+	else if(ship == g.rightShip && ship->kind == 1)
+		target = g.leftShip;	
+	else
+		target = nil;											//If the oponent's ship is not present at the time, the target is nil				
+	
+	if(ship->direction)
+	{
+		missile = SATNewSprite(kMissileKind, ship->position.h + ship->hotRect.right + 1, ship->position.v + 22, &SetupMissile);
+		missile->speed.h += ship->speed.h;						//Make the missile have the starting speed of the shooting ship
+		missile->speed.v += ship->speed.v;
+		ship->speed.h -= kShipMass/kMissileMass;				//Kick the shooter back a somewhat arbitrary amount
+		missile->force.h = kMissileHPower;
+		missile->force.v = 0;
+		missile->face = g.missileFacingRight[2];
+		SetRect(&missile->hotRect, 20, 0, kMissileWidth, kMissileHeight); //The collision rect is in the warhead
+	}
+	else
+	{
+		missile = SATNewSprite(kMissileKind, ship->position.h - kMissileWidth, ship->position.v + 22, &SetupMissile);
+		missile->speed.h += ship->speed.h;						//Make the missile have the starting speed of the shooting ship
+		missile->speed.v += ship->speed.v;
+		ship->speed.h += kShipMass/kMissileMass;
+		missile->force.h = -kMissileHPower;
+		missile->force.v = 0;
+		missile->face = g.missileFacingLeft[2];
+		SetRect(&missile->hotRect, 0, 0, kMissileWidth-20, kMissileHeight); //The collision rect is in the warhead
+	}
+	missile->direction = ship->direction;	
+	
+	SATSoundPlay(g.missileSnd, 3, true);
+}	

@@ -1,0 +1,27 @@
+#include "mySAT.h"
+#include "ascent.h"
+
+/*Code*/
+
+pascal void SetupWinnerLoser(SpritePtr wl)
+{
+Rect	hotRect;
+
+	SetRect(&hotRect, 0,0,0,0);
+	wl->task = &HandleWinnerLoser;
+	wl->hotRect = hotRect;
+	wl->speed.h = 0;
+	wl->speed.v = 0;
+}
+
+pascal void HandleWinnerLoser(SpritePtr wl)
+{
+	wl->position.h = wl->who->position.h;
+	wl->position.v = wl->who->position.v-30;
+
+	if(wl->who->task == nil)
+	{
+		wl->face = nil;
+		wl->task = nil;
+	}		
+}

@@ -1,0 +1,124 @@
+#include "mySAT.h"
+#include "ascent.h"
+
+/*Constants*/
+
+#define kRocketHeight		8
+#define kRocketWidth		30
+#define kRocketPower		40
+#define kRocketMass			20
+
+/*Globals*/
+
+extern Globals		g;
+
+/*Code*/
+
+pascal void SetupRocket(SpritePtr rocket)	
+{
+	rocket->speed.v = (SATRand(5) - SATRand(5))/10.0;	//Make the rocket a little vertically imprecise
+	rocket->speed.h = 0;								//Init the speed.h variable so it doesn't contain garbage (it happens)
+	rocket->task = &HandleRocket;
+	rocket->hitTask = &HitTaskRocket;
+	rocket->layer = kRocketLayer;
+	rocket->mass = kRocketMass;
+	rocket->pos.h = rocket->position.h;
+	rocket->pos.v = rocket->position.v;
+}					
+
+pascal void HandleRocket(SpritePtr rocket)
+{
+static short counter = 0;
+	
+	rocket->speed.h += 0.5 * (rocket->force.h/rocket->mass);		//Accelerated movement
+	rocket->pos.h += rocket->speed.h;
+	rocket->pos.v += rocket->speed.v;
+	rocket->position.h = rocket->pos.h;
+	rocket->position.v = rocket->pos.v;
+	
+	if(rocket->position.h > gSAT.offSizeH)				//If it hits a border
+	{
+		rocket->task = nil;
+		rocket->position.h = gSAT.offSizeH - 20;		//Place the rocket so around half of the explosion is seen
+		Explode(rocket, 12, 7, 5, 3, g.explosionSnd);	//Make an explosion
+	}	
+	if(rocket->position.h < 0)			
+	{
+		rocket->task = nil;
+		rocket->position.h = -20;
+		Explode(rocket, 12, 7, 5, 3, g.explosionSnd);
+	}	
+	if(rocket->position.v > gSAT.offSizeV)	
+	{
+		rocket->task = nil;
+		rocket->position.v = gSAT.offSizeV - 20;
+		Explode(rocket, 12, 7, 5, 3, g.explosionSnd);
+	}	
+	if(rocket->position.v < 0)	
+	{
+		rocket->task = nil;
+		rocket->position.v = -20;
+		Explode(rocket, 12, 7, 5, 3, g.explosionSnd);
+	}	
+	
+	if(counter == 3)							//This generates a cloud of smoke every 2 frames
+	{
+		if(rocket->direction)
+		{
+			SATNewSprite(kSmokeKind, rocket->position.h - 15, rocket->position.v - 11, &SetupSmoke);
+		}else
+		{
+			SATNewSprite(kSmokeKind, rocket->position.h + rocket->hotRect.right, rocket->position.v - 11, &SetupSmoke);
+		}
+	counter = 0;	
+	}	
+	counter++;	
+}
+
+pascal void HitTaskRocket(SpritePtr rocket, SpritePtr him)
+{
+SpritePtr explosion;
+
+	if(him->kind == kShipKind || him->kind == kLaserGKind || him->kind == kBallKind)//Explosions are only produced if "him" is one of the three kind of objects of the game that can be impacted by projectiles. This is a workaround to a SAT bug where projectiles would detonate against smoke, explosions, and such
+	{
+		him->shields -= (kRocketDamage + (SATRand(20)-SATRand(20)));				//Make a somewhat random amount of damage
+		DisplayShields();
+		rocket->task = nil;															//Kill the missile
+		Explode(rocket, 25, 12, 8, 5, g.explosionSnd);								//Make a nice fireball
+	}	
+	
+	if(him->kind == kShipKind || him->kind == kBallKind)							//If the rocket hit a ship or the ball
+	{
+		him->speed.h += (rocket->speed.h * rocket->mass)/him->mass;					//Add the energy of the rocket to the other object					
+		him->speed.v += (rocket->speed.v * rocket->mass)/him->mass;		
+	}	
+}	
+
+void ShootRocket(SpritePtr ship)							//This function fills those rocket variables that depend on the attitude of the shooting ship (since that cant be done from SetupRocket)
+{
+SpritePtr	rocket;
+
+	if(ship->direction)										//true equals "right", false equals "left"
+	{
+		rocket = SATNewSprite(kRocketKind, ship->position.h + ship->hotRect.right + 1, ship->position.v + 22, &SetupRocket);
+		rocket->speed.h += ship->speed.h + 2;				//Make the rocket have the starting speed of the shooting ship plus a little something extra
+		rocket->speed.v += ship->speed.v;
+		ship->speed.h -= kShipMass/kRocketMass;				//Kick the shooter back a somewhat arbitrary amount
+		rocket->force.h = kRocketPower;
+		rocket->face = SATGetFace(kRocketFacingRightID);
+		SetRect(&rocket->hotRect, 20, 0, kRocketWidth, kRocketHeight);	//The collision rect is in the warhead
+	}
+	else
+	{	
+		rocket = SATNewSprite(kRocketKind, ship->position.h - kRocketWidth, ship->position.v + 22, &SetupRocket);
+		rocket->speed.h += ship->speed.h - 2;				//Make the rocket have the starting speed of the shooting ship
+		rocket->speed.v += ship->speed.v;
+		ship->speed.h += kShipMass/kRocketMass;
+		rocket->force.h = -kRocketPower;
+		rocket->face = SATGetFace(kRocketFacingLeftID);
+		SetRect(&rocket->hotRect, 0, 0, kRocketWidth-20, kRocketHeight);	//The collision rect is in the warhead
+	}	
+	rocket->direction = ship->direction;
+	
+	SATSoundPlay(g.rocketSnd, 3, true);
+}	

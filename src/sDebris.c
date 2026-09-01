@@ -1,0 +1,119 @@
+#include "mySAT.h"
+#include "ascent.h"
+
+/*Globals*/
+
+extern Globals		g;
+
+/*Code*/
+
+pascal void SetupDebris1(SpritePtr debris)
+{
+	SetRect(&debris->hotRect, 0,0,0,0);
+	debris->task = &HandleDebris1;
+	debris->pos.h = debris->position.h;
+	debris->pos.v = debris->position.v;
+}
+
+pascal void HandleDebris1(SpritePtr debris)
+{
+static short faceCounter = 0, expCounter = 0;
+
+	//Bounds Check		
+	if(debris->position.v <= 0)
+	{
+		debris->position.v = 0;
+    	Explode(debris, 8, 4, 4, 2, nil);
+    	debris->task = nil;
+    }
+	if(debris->position.v+10 >= gSAT.offSizeV) 
+	{
+		debris->position.v -= 15;
+    	Explode(debris, 8, 4, 4, 2, nil);
+    	debris->task = nil;
+    }
+    if(debris->position.h <= 0)
+	{
+		debris->position.h = 0;
+    	Explode(debris, 8, 4, 4, 2, nil);
+    	debris->task = nil;
+    }
+	if(debris->position.h+10 >= gSAT.offSizeH)
+	{
+		debris->position.h -= 15;
+    	Explode(debris, 8, 4, 4, 2, nil);
+    	debris->task = nil;
+    }	
+	
+	if(expCounter == 4)
+	{
+		SATNewSprite(kSmallExpKind, debris->position.h + 8 + (SATRand(8)-SATRand(8)), debris->position.v + 15 + (SATRand(8)-SATRand(8)), &SetupSmallExplosion);
+		SATNewSprite(kSmallExpKind, debris->position.h + 8 + (SATRand(8)-SATRand(8)), debris->position.v + 15 + (SATRand(8)-SATRand(8)), &SetupSmallExplosion);
+		expCounter = 0;
+	}	
+	expCounter++;
+	
+	debris->face = g.engineDebrisFaces[faceCounter/3];
+	faceCounter++;
+	if(faceCounter >= 14)
+		faceCounter = 0;
+	
+	BallisticModel(debris, g.gravityAccel);
+	debris->position.h = debris->pos.h;
+	debris->position.v = debris->pos.v;		
+}
+
+pascal void SetupDebris2(SpritePtr debris)
+{
+	SetRect(&debris->hotRect, 0,0,0,0);
+	debris->task = &HandleDebris2;
+	debris->pos.h = debris->position.h;
+	debris->pos.v = debris->position.v;	
+}
+
+pascal void HandleDebris2(SpritePtr debris)
+{
+static short faceCounter = 0, expCounter = 0;
+
+	//Bounds Check		
+	if(debris->position.v <= 0)
+	{
+		debris->position.v = 0;
+    	Explode(debris, 8, 4, 4, 2, nil);
+    	debris->task = nil;
+    }
+	if(debris->position.v+10 >= gSAT.offSizeV) 
+	{
+		debris->position.v -= 15;
+    	Explode(debris, 8, 4, 4, 2, nil);
+    	debris->task = nil;
+    }
+    if(debris->position.h <= 0)
+	{
+		debris->position.h = 0;
+    	Explode(debris, 8, 4, 4, 2, nil);
+    	debris->task = nil;
+    }
+	if(debris->position.h+10 >= gSAT.offSizeH)
+	{
+		debris->position.h -= 15;
+    	Explode(debris, 8, 4, 4, 2, nil);
+    	debris->task = nil;
+    }	
+	
+	if(expCounter == 4)
+	{
+		SATNewSprite(kSmallExpKind, debris->position.h + 8 + (SATRand(8)-SATRand(8)), debris->position.v + 8 + (SATRand(8)-SATRand(8)), &SetupSmallExplosion);
+		expCounter = 0;
+	}	
+	expCounter++;
+	
+	debris->face = g.engineDebrisFaces[faceCounter/3];
+	faceCounter++;
+	if(faceCounter >= 14)
+		faceCounter = 0;
+	
+	BallisticModel(debris, g.gravityAccel);
+	debris->position.h = debris->pos.h;
+	debris->position.v = debris->pos.v;		
+}
