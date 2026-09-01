@@ -1,3 +1,5 @@
 *.o
 /ascent
 assets/png-test/
+build/
+tools/.venv/

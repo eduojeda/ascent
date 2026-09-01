@@ -215,6 +215,9 @@ static void MainEventLoop(void)
 	Boolean mouseOverMenuItem = false;
 	int hoveredItem = -1;
 
+	if (SDL_getenv("ASCENT_AUTOSTART")) /* testing hook: straight into a game */
+		Play();
+
 	do {
 		if (!SATPumpEvents())
 			break;
