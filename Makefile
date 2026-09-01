@@ -14,10 +14,31 @@ ascent: $(OBJS)
 %.o: %.c src/mySAT.h src/ascent.h src/gamma.h src/compat/mac_types.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: clean assets
+.PHONY: clean assets bundle
 clean:
 	rm -f $(OBJS) ascent
+	rm -rf Ascent.app
 
 assets:
 	./tools/convert-art.sh
 	./tools/gen-sounds.sh
+
+APP = Ascent.app/Contents
+bundle: ascent
+	rm -rf Ascent.app
+	mkdir -p $(APP)/MacOS $(APP)/Resources
+	cp ascent $(APP)/MacOS/Ascent
+	cp -R assets $(APP)/Resources/assets
+	printf '%s\n' \
+	  '<?xml version="1.0" encoding="UTF-8"?>' \
+	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+	  '<plist version="1.0"><dict>' \
+	  '<key>CFBundleExecutable</key><string>Ascent</string>' \
+	  '<key>CFBundleIdentifier</key><string>com.eduardoojeda.ascent</string>' \
+	  '<key>CFBundleName</key><string>Ascent</string>' \
+	  '<key>CFBundleVersion</key><string>1.0.1</string>' \
+	  '<key>CFBundleShortVersionString</key><string>1.0.1</string>' \
+	  '<key>CFBundlePackageType</key><string>APPL</string>' \
+	  '<key>NSHighResolutionCapable</key><true/>' \
+	  '</dict></plist>' > $(APP)/Info.plist
+	codesign --force --sign - Ascent.app
