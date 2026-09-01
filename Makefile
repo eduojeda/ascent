@@ -22,6 +22,12 @@ clean:
 assets:
 	./tools/convert-art.sh
 	./tools/gen-sounds.sh
+	mkdir -p recovered
+	ditto -xk "Juego PPC.zip" recovered/
+	python3 tools/extract_rsrc.py \
+	  "recovered/Juego PPC/Juego PPC/Ascent v1.0.1 ƒ/Ascent v1.0.1" \
+	  recovered/resources
+	tools/.venv/bin/python tools/install_original_assets.py
 
 APP = Ascent.app/Contents
 bundle: ascent

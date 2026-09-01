@@ -43,17 +43,18 @@ logic — intact and replaces the platform underneath:
   game uses, on SDL3. Dirty-rect animation became full-frame
   recomposition at 800x600 (the original resolution).
 - `src/main.c` is new: SDL event loop, menu, settings, pause.
-- The resource forks (all compiled resources) were lost when the files
-  left HFS around 2012. Sprites and pictures were rebuilt from the
-  Photoshop/PICT sources in `Development Stuff/` by
-  `tools/build_assets.py`; art with no surviving source (explosions,
-  smoke, sparks, digits, bullets, countdown text) is regenerated
-  procedurally.
-- All 43 original sounds are gone — including the Beavis & Butthead and
-  Simpsons clips behind the "Dirty Words" toggle. `tools/gen-sounds.sh`
-  synthesizes placeholders (macOS `say` stands in for the voices). If a
-  copy of the original release archive ever turns up, the real sounds
-  can be dropped into `assets/sounds/`.
+- The assets are the ORIGINALS, recovered from the 2002 release app's
+  resource fork. The fork survived inside `Juego PPC.zip` — a Finder-made
+  backup of the old dev machine whose `__MACOSX` AppleDouble entries
+  carried it through years on a Windows disk. `tools/extract_rsrc.py`
+  parses the fork (all 43 `snd ` sounds to WAV, 140 `cicn` sprite faces
+  with their masks, all `PICT`s); `tools/install_original_assets.py`
+  installs them into `assets/`.
+- Before the archive turned up, the assets were reconstructed from the
+  art sources in `Development Stuff/` (`tools/build_assets.py`) with
+  synthesized placeholder sounds (`tools/gen-sounds.sh`); those tools
+  remain as the fallback path — `make assets` runs the full chain,
+  originals winning.
 
 One genuine 2002 bug fixed: `SetupBall` dereferenced `g.ball` before it
 was assigned — Classic Mac OS silently allowed the nil write; modern

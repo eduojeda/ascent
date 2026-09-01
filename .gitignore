@@ -4,3 +4,6 @@ assets/png-test/
 build/
 tools/.venv/
 Ascent.app/
+recovered/
+Ascent - SheepShaver/
+__pycache__/
