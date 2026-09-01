@@ -22,7 +22,10 @@ pascal void SetupBall(SpritePtr ball)
 	ball->layer = kBallLayer;
 	ball->mode = kBallFreeMode;
 	ball->mass = kBallMass;
-	InitVariables(g.ball);
+	InitVariables(ball);	//was InitVariables(g.ball): g.ball isn't assigned yet
+							//when SATNewSprite runs this setup; nil writes were
+							//silent on Classic Mac OS, they crash here
+
 	SetRect(&ball->hotRect, 0, 0, kBallDiameter, kBallDiameter);
 }
 

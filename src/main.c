@@ -114,11 +114,21 @@ static void Play(void)
 	KeyMap theKeys;
 	Boolean pKeyWasUp = true, escKeyWasUp = true;
 	Uint64 nextFrame;
+	long selfTestTick = 0;
+
+	if (SDL_getenv("ASCENT_SELFTEST")) /* exercise death/winner paths */
+		g.numLives = 1;
 
 	InitNewGame();
 	nextFrame = SDL_GetTicksNS();
 
 	do {
+		if (SDL_getenv("ASCENT_SELFTEST")) {
+			selfTestTick++;
+			if (selfTestTick == 600 && g.leftShip &&
+			    g.leftShip->mode == kShipAliveMode)
+				g.leftShip->shields = -1;
+		}
 		if (!SATPumpEvents()) {
 			CleanUp();
 			exit(0);

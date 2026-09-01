@@ -138,8 +138,26 @@ void SATInitToolbox(void)
 	SetPort(&g_screenPort);
 }
 
+/* Testing hooks: ASCENT_SHOTDIR dumps the composite every 30 presents;
+   ASCENT_AUTOQUIT=<n> exits after n presents. */
+static void TestHooks(void)
+{
+	static long presents;
+	presents++;
+	const char *dir = SDL_getenv("ASCENT_SHOTDIR");
+	if (dir && presents % 30 == 0) {
+		char path[1200];
+		snprintf(path, sizeof path, "%s/frame-%05ld.png", dir, presents);
+		IMG_SavePNG(g_screen, path);
+	}
+	const char *quit = SDL_getenv("ASCENT_AUTOQUIT");
+	if (quit && presents >= atol(quit))
+		exit(0);
+}
+
 void SATPresent(void)
 {
+	TestHooks();
 	SDL_UpdateTexture(g_frameTex, NULL, g_screen->pixels, g_screen->pitch);
 	Uint8 level = (Uint8)((g_gamma * 255) / 100);
 	SDL_SetTextureColorMod(g_frameTex, level, level, level);
@@ -584,7 +602,7 @@ PicHandle GetPicture(short id)
 void DrawPicture(PicHandle pic, const Rect *dst)
 {
 	SDL_Rect d = ClipRect(dst);
-	SDL_SetSurfaceBlendMode(pic->s, SDL_BLENDMODE_NONE);
+	SDL_SetSurfaceBlendMode(pic->s, SDL_BLENDMODE_BLEND);
 	SDL_BlitSurfaceScaled(pic->s, NULL, g_curPort->portBits.s, &d,
 	                      SDL_SCALEMODE_LINEAR);
 }
