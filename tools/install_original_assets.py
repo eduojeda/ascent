@@ -161,6 +161,18 @@ def key_border_white(img, threshold=240):
     return img
 
 
+def key_all_white(img, threshold=235):
+    img = img.convert("RGBA")
+    px = img.load()
+    w, h = img.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if r >= threshold and g >= threshold and b >= threshold:
+                px[x, y] = (r, g, b, 0)
+    return img
+
+
 def install_picts():
     n, failed = 0, []
     d = os.path.join(RES, "PICT")
@@ -188,8 +200,14 @@ def install_picts():
             except Exception as e:
                 failed.append((rid, str(e)[:80]))
         if img:
-            if rid == 131:
+            if rid in (129, 130, 131):
+                # unpainted regions (panel corners, menu surround) came out
+                # white; the original left them untouched on screen
                 img = key_border_white(img)
+            elif rid in (132, 133, 134, 135):
+                # lit menu items are glow text only: ALL white is background,
+                # including enclosed letter counters
+                img = key_all_white(img)
             img.save(os.path.join(PICS, f"{rid}.png"))
             n += 1
         os.remove(tmp)

@@ -155,6 +155,24 @@ static void TestHooks(void)
 		exit(0);
 }
 
+/* Renderer-level screenshot for UI drawn on top of the frame texture */
+void SATDumpRendererShot(const char *tag)
+{
+	static long n;
+	const char *dir = SDL_getenv("ASCENT_SHOTDIR");
+	if (!dir)
+		return;
+	if (++n % 30 != 0)
+		return;
+	SDL_Surface *s = SDL_RenderReadPixels(g_renderer, NULL);
+	if (s) {
+		char path[1200];
+		snprintf(path, sizeof path, "%s/ui-%s-%05ld.png", dir, tag, n);
+		IMG_SavePNG(s, path);
+		SDL_DestroySurface(s);
+	}
+}
+
 void SATPresent(void)
 {
 	TestHooks();
@@ -749,4 +767,5 @@ void FlushEvents(short mask, short stop)
 
 /* Renderer access for screens drawn with SDL debug text (settings, about) */
 SDL_Renderer *SATGetRenderer(void) { return g_renderer; }
+SDL_Window *SATGetWindow(void) { return g_window; }
 SDL_Texture *SATGetFrameTexture(void) { return g_frameTex; }

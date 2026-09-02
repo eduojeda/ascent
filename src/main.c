@@ -85,6 +85,8 @@ static void PresentWithText(void (*drawText)(void))
 	SDL_RenderClear(r);
 	SDL_RenderTexture(r, SATGetFrameTexture(), NULL, NULL);
 	drawText();
+	extern void SATDumpRendererShot(const char *tag);
+	SATDumpRendererShot("dlg");
 	SDL_RenderPresent(r);
 }
 
@@ -227,6 +229,8 @@ static void MainEventLoop(void)
 
 	if (SDL_getenv("ASCENT_AUTOSTART")) /* testing hook: straight into a game */
 		Play();
+	if (SDL_getenv("ASCENT_SHOWSETTINGS")) /* testing hook */
+		DisplaySettingsScreen();
 
 	do {
 		if (!SATPumpEvents())
@@ -234,7 +238,9 @@ static void MainEventLoop(void)
 		GetMouse(&mouseLoc);
 
 		int item = -1;
-		if (PtInRect(mouseLoc, &menuNewGameRect))
+		if (SDL_getenv("ASCENT_HOVER")) /* testing hook: fake a hover */
+			item = SDL_atoi(SDL_getenv("ASCENT_HOVER"));
+		else if (PtInRect(mouseLoc, &menuNewGameRect))
 			item = 0;
 		else if (PtInRect(mouseLoc, &menuSettingsRect))
 			item = 1;
@@ -507,124 +513,269 @@ static void Initialize(void)
 		MyFadeFromBlack(50);
 }
 
-/* ---- settings screen (replaces the Classic dialog) ---- */
+/* ---- settings screen ----
+   A faithful redraw of the original DLOG/DITL 128 ("Settings", 274x172),
+   recovered from the resource fork, rendered at 2x. Item rectangles and
+   labels are the 2002 ones. */
 
-static int g_settingsHover = -1;
+#define DLG_SCALE 2
+#define DLG_W (274 * DLG_SCALE)
+#define DLG_H (172 * DLG_SCALE)
+#define DLG_X ((800 - DLG_W) / 2)
+#define DLG_Y 120
+
+typedef struct DlgItem {
+	short l, t, r, b;
+	const char *label;
+} DlgItem;
 
 enum {
-	kSetSound = 0, kSetDirtyWords, kSetLives, kSetPoints,
-	kSetLeftKeys, kSetRightKeys, kSetDone, kSetCount
+	kItOK, kItCancel, kItFastAnim, kItSound, kItAdult,
+	kItLives, kItPoints, kItBlueKeys, kItRedKeys, kItCount
 };
 
-static Rect SettingsRowRect(int row)
+static const DlgItem kSettingsItems[kItCount] = {
+	[kItOK]       = { 200, 110, 258, 130, "OK" },
+	[kItCancel]   = { 200, 140, 258, 160, "Cancel" },
+	[kItFastAnim] = { 10, 18, 130, 36, "Fast Animation" },
+	[kItSound]    = { 10, 38, 76, 56, "Sound" },
+	[kItAdult]    = { 10, 58, 116, 76, "Adult Mode" },
+	[kItLives]    = { 190, 20, 214, 37, NULL },
+	[kItPoints]   = { 190, 40, 214, 57, NULL },
+	[kItBlueKeys] = { 10, 80, 136, 99, "Blue Player Keys..." },
+	[kItRedKeys]  = { 140, 80, 266, 99, "Red Player Keys..." },
+};
+
+static SDL_FRect ItemRect(int i)
 {
-	Rect r;
-	SetRect(&r, 250, 150 + row * 44, 550, 150 + row * 44 + 32);
-	return r;
+	const DlgItem *it = &kSettingsItems[i];
+	return (SDL_FRect){ DLG_X + it->l * DLG_SCALE, DLG_Y + it->t * DLG_SCALE,
+		                (it->r - it->l) * DLG_SCALE,
+		                (it->b - it->t) * DLG_SCALE };
 }
 
-static void SettingsTextOverlay(void)
+static void RFill(SDL_FRect r, int c1, int c2, int c3)
 {
-	SDL_Color green = { 60, 255, 60, 255 };
-	SDL_Color dim = { 30, 140, 30, 255 };
-	char buf[64];
+	SDL_Renderer *rd = SATGetRenderer();
+	SDL_SetRenderDrawColor(rd, c1, c2, c3, 255);
+	SDL_RenderFillRect(rd, &r);
+}
 
-	DrawTextCentered(100, 3, green, "SETTINGS");
-	for (int i = 0; i < kSetCount; i++) {
-		Rect r = SettingsRowRect(i);
-		SDL_Color c = (i == g_settingsHover) ? green : dim;
-		switch (i) {
-		case kSetSound:
-			SDL_snprintf(buf, sizeof buf, "Sound: %s",
-			             gSoundOn ? "On" : "Off");
-			break;
-		case kSetDirtyWords:
-			SDL_snprintf(buf, sizeof buf, "Dirty Words: %s",
-			             g.dirtyWordsMode ? "On" : "Off");
-			break;
-		case kSetLives:
-			SDL_snprintf(buf, sizeof buf, "Lives: %d  < >", g.numLives);
-			break;
-		case kSetPoints:
-			SDL_snprintf(buf, sizeof buf, "Points to Win: %d  < >",
-			             g.numPoints);
-			break;
-		case kSetLeftKeys:
-			SDL_snprintf(buf, sizeof buf, "Configure Left Player Keys...");
-			break;
-		case kSetRightKeys:
-			SDL_snprintf(buf, sizeof buf, "Configure Right Player Keys...");
-			break;
-		case kSetDone:
-			SDL_snprintf(buf, sizeof buf, "Done");
-			break;
+static void RFrame(SDL_FRect r, int c1, int c2, int c3)
+{
+	SDL_Renderer *rd = SATGetRenderer();
+	SDL_SetRenderDrawColor(rd, c1, c2, c3, 255);
+	SDL_RenderRect(rd, &r);
+}
+
+static void DrawDialogBox(SDL_FRect box)
+{
+	SDL_FRect shadow = { box.x + 4, box.y + 4, box.w, box.h };
+	RFill(shadow, 0, 0, 40);
+	RFill(box, 221, 221, 221);
+	RFrame(box, 0, 0, 0);
+	SDL_FRect inner = { box.x + 1, box.y + 1, box.w - 2, box.h - 2 };
+	RFrame(inner, 255, 255, 255);
+}
+
+static void DrawButton(int i, Boolean isDefault)
+{
+	SDL_FRect r = ItemRect(i);
+	SDL_Color black = { 0, 0, 0, 255 };
+	RFill(r, 238, 238, 238);
+	RFrame(r, 0, 0, 0);
+	const char *label = kSettingsItems[i].label;
+	float scale = 2;
+	while (scale > 1 && TextWidth(scale, label) > r.w - 8)
+		scale -= 0.25f;
+	DrawTextLine(r.x + r.w / 2 - TextWidth(scale, label) / 2,
+	             r.y + r.h / 2 - 4 * scale, scale, black, label);
+	if (isDefault) {
+		SDL_FRect ring = { r.x - 5, r.y - 5, r.w + 10, r.h + 10 };
+		for (int k = 0; k < 3; k++) {
+			RFrame(ring, 0, 0, 0);
+			ring.x += 1; ring.y += 1; ring.w -= 2; ring.h -= 2;
 		}
-		DrawTextLine((float)r.left, (float)r.top + 8, 2, c, buf);
+	}
+}
+
+static void DrawCheckbox(int i, Boolean on)
+{
+	SDL_FRect r = ItemRect(i);
+	SDL_Color black = { 0, 0, 0, 255 };
+	SDL_FRect box = { r.x, r.y + r.h / 2 - 8, 16, 16 };
+	RFill(box, 255, 255, 255);
+	RFrame(box, 0, 0, 0);
+	if (on) {
+		SDL_Renderer *rd = SATGetRenderer();
+		SDL_SetRenderDrawColor(rd, 0, 0, 0, 255);
+		SDL_RenderLine(rd, box.x + 2, box.y + 2, box.x + 13, box.y + 13);
+		SDL_RenderLine(rd, box.x + 13, box.y + 2, box.x + 2, box.y + 13);
+	}
+	DrawTextLine(r.x + 24, r.y + r.h / 2 - 8, 2, black,
+	             kSettingsItems[i].label);
+}
+
+static void DrawEditField(int i, const char *text, Boolean focused)
+{
+	SDL_FRect r = ItemRect(i);
+	SDL_Color black = { 0, 0, 0, 255 };
+	RFill(r, 255, 255, 255);
+	RFrame(r, 0, 0, 0);
+	if (focused) {
+		SDL_FRect f = { r.x - 2, r.y - 2, r.w + 4, r.h + 4 };
+		RFrame(f, 70, 70, 70);
+	}
+	DrawTextLine(r.x + 6, r.y + r.h / 2 - 8, 2, black, text);
+}
+
+/* dialog state shared with the draw callback */
+static Boolean s_fast, s_sound, s_adult;
+static char s_lives[4], s_points[4];
+static int s_focus; /* kItLives or kItPoints */
+
+static void DrawSettingsDialog(void)
+{
+	SDL_Color black = { 0, 0, 0, 255 };
+	SDL_FRect box = { DLG_X, DLG_Y, DLG_W, DLG_H };
+	DrawDialogBox(box);
+	DrawButton(kItOK, true);
+	DrawButton(kItCancel, false);
+	DrawButton(kItBlueKeys, false);
+	DrawButton(kItRedKeys, false);
+	DrawCheckbox(kItFastAnim, s_fast);
+	DrawCheckbox(kItSound, s_sound);
+	DrawCheckbox(kItAdult, s_adult);
+	DrawEditField(kItLives, s_lives, s_focus == kItLives);
+	DrawEditField(kItPoints, s_points, s_focus == kItPoints);
+	/* right-aligned against the edit fields; the debug font is wider than
+	   Chicago 12 was, so the DITL's left edges would collide */
+	DrawTextLine(DLG_X + 187 * DLG_SCALE - TextWidth(2, "Lives:"),
+	             DLG_Y + 22 * DLG_SCALE, 2, black, "Lives:");
+	DrawTextLine(DLG_X + 187 * DLG_SCALE - TextWidth(2, "Points:"),
+	             DLG_Y + 42 * DLG_SCALE, 2, black, "Points:");
+	DrawTextLine(DLG_X + 220 * DLG_SCALE, DLG_Y + 22 * DLG_SCALE, 2, black,
+	             "(0-99)");
+	DrawTextLine(DLG_X + 220 * DLG_SCALE, DLG_Y + 42 * DLG_SCALE, 2, black,
+	             "(0-99)");
+}
+
+static Boolean PtInFRect(float x, float y, SDL_FRect r)
+{
+	return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+}
+
+static void FieldTypeDigit(char *field, char digit)
+{
+	size_t n = SDL_strlen(field);
+	if (n >= 2) {
+		field[0] = digit;
+		field[1] = 0;
+	} else {
+		field[n] = digit;
+		field[n + 1] = 0;
 	}
 }
 
 static void DisplaySettingsScreen(void)
 {
-	Boolean done = false;
-	Point mouse;
+	s_fast = gFastGraphics;
+	s_sound = gSoundOn;
+	s_adult = g.dirtyWordsMode;
+	SDL_snprintf(s_lives, sizeof s_lives, "%d", g.numLives);
+	SDL_snprintf(s_points, sizeof s_points, "%d", g.numPoints);
+	s_focus = kItLives;
 
-	while (!done) {
-		if (!SATPumpEvents())
-			return;
-		GetMouse(&mouse);
-		g_settingsHover = -1;
-		for (int i = 0; i < kSetCount; i++) {
-			Rect r = SettingsRowRect(i);
-			if (PtInRect(mouse, &r))
-				g_settingsHover = i;
+	for (;;) {
+		SDL_Event e;
+		int clicked = -1;
+		Boolean commit = false, cancel = false;
+		while (SDL_PollEvent(&e)) {
+			if (e.type == SDL_EVENT_QUIT) {
+				gSATQuitRequested = true;
+				return;
+			}
+			if (e.type == SDL_EVENT_KEY_DOWN) {
+				SDL_Keycode k = e.key.key;
+				if (k == SDLK_RETURN || k == SDLK_KP_ENTER)
+					commit = true;
+				else if (k == SDLK_ESCAPE)
+					cancel = true;
+				else if (k == SDLK_TAB)
+					s_focus = (s_focus == kItLives) ? kItPoints : kItLives;
+				else if (k == SDLK_BACKSPACE) {
+					char *f = (s_focus == kItLives) ? s_lives : s_points;
+					size_t n = SDL_strlen(f);
+					if (n)
+						f[n - 1] = 0;
+				} else if (k >= SDLK_0 && k <= SDLK_9)
+					FieldTypeDigit((s_focus == kItLives) ? s_lives : s_points,
+					               (char)('0' + (k - SDLK_0)));
+				else if (k >= SDLK_KP_1 && k <= SDLK_KP_0) {
+					int d = (k == SDLK_KP_0) ? 0 : (int)(k - SDLK_KP_1) + 1;
+					FieldTypeDigit((s_focus == kItLives) ? s_lives : s_points,
+					               (char)('0' + d));
+				}
+			}
+			if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+			    e.button.button == SDL_BUTTON_LEFT) {
+				SDL_ConvertEventToRenderCoordinates(SATGetRenderer(), &e);
+				for (int i = 0; i < kItCount; i++)
+					if (PtInFRect(e.button.x, e.button.y, ItemRect(i)))
+						clicked = i;
+			}
 		}
 
-		DrawMenuWindow(); /* background */
-		PresentWithText(SettingsTextOverlay);
+		if (clicked >= 0) {
+			SATSoundPlay(g.menuLowBassSnd, 1, nil);
+			switch (clicked) {
+			case kItOK: commit = true; break;
+			case kItCancel: cancel = true; break;
+			case kItFastAnim: s_fast = !s_fast; break;
+			case kItSound: s_sound = !s_sound; break;
+			case kItAdult: s_adult = !s_adult; break;
+			case kItLives: s_focus = kItLives; break;
+			case kItPoints: s_focus = kItPoints; break;
+			case kItBlueKeys:
+				if (!WaitForMouseRelease())
+					return;
+				SetKeys(&LSKeys, "Blue player");
+				break;
+			case kItRedKeys:
+				if (!WaitForMouseRelease())
+					return;
+				SetKeys(&RSKeys, "Red player");
+				break;
+			}
+		}
 
-		if (Button() && g_settingsHover >= 0) {
-			int item = g_settingsHover;
-			Rect r = SettingsRowRect(item);
-			Boolean leftHalf = mouse.h < (r.left + r.right) / 2;
-			if (!WaitForMouseRelease())
-				return;
-			switch (item) {
-			case kSetSound:
-				gSoundOn = !gSoundOn;
+		if (commit) {
+			gFastGraphics = s_fast;
+			g.dirtyWordsMode = s_adult;
+			if (s_sound != gSoundOn) {
+				gSoundOn = s_sound;
 				if (gSoundOn)
 					SATSoundOn();
 				else
 					SATSoundOff();
-				break;
-			case kSetDirtyWords:
-				g.dirtyWordsMode = !g.dirtyWordsMode;
-				break;
-			case kSetLives:
-				g.numLives += leftHalf ? -1 : 1;
-				if (g.numLives < 1) g.numLives = 99;
-				if (g.numLives > 99) g.numLives = 1;
-				break;
-			case kSetPoints:
-				g.numPoints += leftHalf ? -1 : 1;
-				if (g.numPoints < 1) g.numPoints = 99;
-				if (g.numPoints > 99) g.numPoints = 1;
-				break;
-			case kSetLeftKeys:
-				SetKeys(&LSKeys, "LEFT (blue) player");
-				break;
-			case kSetRightKeys:
-				SetKeys(&RSKeys, "RIGHT (red) player");
-				break;
-			case kSetDone:
-				done = true;
-				break;
 			}
-			SATSoundPlay(g.menuHighBassSnd, 1, nil);
+			int v = SDL_atoi(s_lives);
+			g.numLives = v < 1 ? 1 : (v > 99 ? 99 : v);
+			v = SDL_atoi(s_points);
+			g.numPoints = v < 1 ? 1 : (v > 99 ? 99 : v);
 		}
+		if (commit || cancel) {
+			SATSoundPlay(g.menuHighBassSnd, 1, nil);
+			break;
+		}
+
+		DrawMenuWindow();
+		PresentWithText(DrawSettingsDialog);
 		SDL_Delay(10);
 	}
 	DrawMenuWindow();
 	SATPresent();
+	(void)WaitForMouseRelease();
 }
 
 /* ---- key configuration ---- */
@@ -634,10 +785,15 @@ static const char *g_keyPlayer;
 
 static void KeyPromptOverlay(void)
 {
-	SDL_Color green = { 60, 255, 60, 255 };
-	SDL_Color grey = { 200, 200, 200, 255 };
-	DrawTextCentered(240, 2, grey, g_keyPlayer);
-	DrawTextCentered(280, 2, green, g_keyPrompt);
+	/* styled after the original SetKeys dialog (DLOG 129, 242x44, at 2x) */
+	SDL_Color black = { 0, 0, 0, 255 };
+	float w = 242 * DLG_SCALE, h = 44 * DLG_SCALE;
+	SDL_FRect box = { (800 - w) / 2, 240, w, h };
+	DrawDialogBox(box);
+	DrawTextLine(box.x + box.w / 2 - TextWidth(2, g_keyPlayer) / 2,
+	             box.y + 14, 2, black, g_keyPlayer);
+	DrawTextLine(box.x + box.w / 2 - TextWidth(2, g_keyPrompt) / 2,
+	             box.y + h - 30, 2, black, g_keyPrompt);
 }
 
 static int WaitForKeyBit(void)
