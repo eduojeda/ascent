@@ -7,3 +7,4 @@ Ascent.app/
 recovered/
 Ascent - SheepShaver/
 __pycache__/
+*.o.tmp

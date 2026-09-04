@@ -110,8 +110,9 @@ void CopyBits(const void *srcBits, void *dstBits, const Rect *srcRect,
               const Rect *dstRect, short mode, void *maskRgn);
 OSErr NewScreenBuffer(const Rect *bounds, Boolean purgeable, GDHandle *gd,
                       PixMapHandle *out);
+void DisposeScreenBuffer(PixMapHandle h);
 
-/* Mouse (in 800x600 logical coordinates) */
+/* Mouse (in play-area logical coordinates) */
 void GetMouse(Point *p);
 Boolean Button(void);
 

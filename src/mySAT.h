@@ -123,6 +123,8 @@ void SATOverlayPic(short picID, Rect *dst);  /* picture drawn above sprites */
 void SATOverlayClear(void);
 void SATSetGammaLevel(int percent);          /* 0 = black, 100 = full */
 Boolean SATPumpEvents(void);                 /* returns false on quit request */
+void SATSetPlayAreaSize(int w, int h);       /* clamped; safe between games */
+void SATTilePicture(PicHandle pic, const Rect *area);
 extern Boolean gSATQuitRequested;
 
 #ifdef __cplusplus

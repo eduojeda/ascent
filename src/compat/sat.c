@@ -4,7 +4,9 @@
    Rendering model: the original SAT did dirty-rect updates between three
    buffers (backScreen -> offScreen -> window). Here backScreen is a plain
    surface, and every frame the whole scene is recomposed into the screen
-   surface and pushed to an 800x600 logical-size texture. */
+   surface and pushed to a logical-size texture. The play area (the game's
+   logical size) defaults to the largest preset that fits the display and
+   can be changed at runtime via SATSetPlayAreaSize. */
 
 #include "../mySAT.h"
 #include <SDL3_image/SDL_image.h>
@@ -12,8 +14,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define GAME_W 800
-#define GAME_H 600
+#define MIN_GAME_W 800 /* the 2002 layout; HUD/menu art assumes at least this */
+#define MIN_GAME_H 600
+
+static int g_gameW = MIN_GAME_W, g_gameH = MIN_GAME_H;
+static Boolean g_sizeRequested; /* a size was set before the window existed */
 
 SATglobalsRec gSAT;
 Boolean gSATQuitRequested = false;
@@ -97,6 +102,73 @@ static SDL_Surface *PlaceholderSurface(int w, int h)
 
 /* ---- window and presentation ---- */
 
+static void ClampSizeToDisplay(int *w, int *h)
+{
+	SDL_Rect b;
+	if (SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &b)) {
+		if (*w > b.w)
+			*w = b.w;
+		if (*h > b.h - 28) /* leave room for the title bar */
+			*h = b.h - 28;
+	}
+	if (*w < MIN_GAME_W)
+		*w = MIN_GAME_W;
+	if (*h < MIN_GAME_H)
+		*h = MIN_GAME_H;
+}
+
+static void PickDefaultSize(void)
+{
+	/* largest preset that fits the display with some breathing room */
+	static const int presets[][2] = {
+		{ 1600, 1000 }, { 1440, 900 }, { 1280, 800 },
+		{ 1152, 720 },  { 1024, 768 }, { 800, 600 },
+	};
+	SDL_Rect b;
+	if (!SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &b))
+		return;
+	for (size_t i = 0; i < SDL_arraysize(presets); i++) {
+		if (presets[i][0] <= b.w - 32 && presets[i][1] <= b.h - 64) {
+			g_gameW = presets[i][0];
+			g_gameH = presets[i][1];
+			return;
+		}
+	}
+}
+
+static void SetupPlayAreaBuffers(void)
+{
+	if (g_frameTex)
+		SDL_DestroyTexture(g_frameTex);
+	if (g_screen)
+		SDL_DestroySurface(g_screen);
+	if (g_back)
+		SDL_DestroySurface(g_back);
+	g_frameTex = SDL_CreateTexture(g_renderer, SDL_PIXELFORMAT_ARGB8888,
+	                               SDL_TEXTUREACCESS_STREAMING, g_gameW,
+	                               g_gameH);
+	g_screen = SDL_CreateSurface(g_gameW, g_gameH, SDL_PIXELFORMAT_ARGB8888);
+	g_back = SDL_CreateSurface(g_gameW, g_gameH, SDL_PIXELFORMAT_ARGB8888);
+	SDL_FillSurfaceRect(g_back, NULL, 0xff000000);
+	SDL_FillSurfaceRect(g_screen, NULL, 0xff000000);
+	g_screenPort.portBits.s = g_screen;
+	SetRect(&g_screenPort.portRect, 0, 0, g_gameW, g_gameH);
+	g_backPort.portBits.s = g_back;
+	SetRect(&g_backPort.portRect, 0, 0, g_gameW, g_gameH);
+
+	gSAT.wind.port = &g_screenPort;
+	SetRect(&gSAT.wind.bounds, 0, 0, g_gameW, g_gameH);
+	gSAT.offScreen.port = &g_screenPort;
+	gSAT.offScreen.bounds = gSAT.wind.bounds;
+	gSAT.backScreen.port = &g_backPort;
+	gSAT.backScreen.bounds = gSAT.wind.bounds;
+	gSAT.offSizeH = (short)g_gameW;
+	gSAT.offSizeV = (short)g_gameH;
+
+	SDL_SetRenderLogicalPresentation(g_renderer, g_gameW, g_gameH,
+	                                 SDL_LOGICAL_PRESENTATION_LETTERBOX);
+}
+
 void SATInitToolbox(void)
 {
 	if (g_window)
@@ -105,37 +177,49 @@ void SATInitToolbox(void)
 		fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
 		exit(1);
 	}
-	if (!SDL_CreateWindowAndRenderer("Ascent", GAME_W, GAME_H,
+	if (g_sizeRequested)
+		ClampSizeToDisplay(&g_gameW, &g_gameH);
+	else
+		PickDefaultSize();
+	if (!SDL_CreateWindowAndRenderer("Ascent", g_gameW, g_gameH,
 	                                 SDL_WINDOW_RESIZABLE, &g_window,
 	                                 &g_renderer)) {
 		fprintf(stderr, "SDL_CreateWindowAndRenderer: %s\n", SDL_GetError());
 		exit(1);
 	}
-	SDL_SetRenderLogicalPresentation(g_renderer, GAME_W, GAME_H,
-	                                 SDL_LOGICAL_PRESENTATION_LETTERBOX);
 	SDL_SetRenderVSync(g_renderer, 1);
-	g_frameTex = SDL_CreateTexture(g_renderer, SDL_PIXELFORMAT_ARGB8888,
-	                               SDL_TEXTUREACCESS_STREAMING, GAME_W, GAME_H);
-	g_screen = SDL_CreateSurface(GAME_W, GAME_H, SDL_PIXELFORMAT_ARGB8888);
-	g_back = SDL_CreateSurface(GAME_W, GAME_H, SDL_PIXELFORMAT_ARGB8888);
-	SDL_FillSurfaceRect(g_back, NULL, 0xff000000);
-	SDL_FillSurfaceRect(g_screen, NULL, 0xff000000);
-	g_screenPort.portBits.s = g_screen;
-	SetRect(&g_screenPort.portRect, 0, 0, GAME_W, GAME_H);
-	g_backPort.portBits.s = g_back;
-	SetRect(&g_backPort.portRect, 0, 0, GAME_W, GAME_H);
-
-	gSAT.wind.port = &g_screenPort;
-	SetRect(&gSAT.wind.bounds, 0, 0, GAME_W, GAME_H);
-	gSAT.offScreen.port = &g_screenPort;
-	gSAT.offScreen.bounds = gSAT.wind.bounds;
-	gSAT.backScreen.port = &g_backPort;
-	gSAT.backScreen.bounds = gSAT.wind.bounds;
-	gSAT.offSizeH = GAME_W;
-	gSAT.offSizeV = GAME_H;
+	SetupPlayAreaBuffers();
 
 	FindAssetRoot();
 	SetPort(&g_screenPort);
+}
+
+/* Change the play area. Before the window exists this just records the wish;
+   afterwards it rebuilds the composition buffers and resizes the window.
+   Call it between games only (sprites hold positions in the old bounds). */
+void SATSetPlayAreaSize(int w, int h)
+{
+	if (!g_window) {
+		if (w < MIN_GAME_W)
+			w = MIN_GAME_W;
+		if (h < MIN_GAME_H)
+			h = MIN_GAME_H;
+		g_gameW = w;
+		g_gameH = h;
+		g_sizeRequested = true;
+		return;
+	}
+	ClampSizeToDisplay(&w, &h);
+	if (w == g_gameW && h == g_gameH)
+		return;
+	g_gameW = w;
+	g_gameH = h;
+	SetupPlayAreaBuffers();
+	if (!(SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN)) {
+		SDL_SetWindowSize(g_window, w, h);
+		SDL_SetWindowPosition(g_window, SDL_WINDOWPOS_CENTERED,
+		                      SDL_WINDOWPOS_CENTERED);
+	}
 }
 
 /* Testing hooks: ASCENT_SHOTDIR dumps the composite every 30 presents;
@@ -234,10 +318,10 @@ void SATCustomInit(short pictID, short bwpictID, Rect *area, WindowPtr wind,
 
 	PicHandle bg = GetPicture(pictID);
 	Rect full;
-	SetRect(&full, 0, 0, GAME_W, GAME_H);
+	SetRect(&full, 0, 0, g_gameW, g_gameH);
 	GrafPtr save = GetCurrentPort();
 	SetPort(&g_backPort);
-	DrawPicture(bg, &full);
+	SATTilePicture(bg, &full);
 	SetPort(save);
 	DisposeHandle((Handle)bg);
 	SDL_BlitSurface(g_back, NULL, g_screen, NULL);
@@ -625,6 +709,20 @@ void DrawPicture(PicHandle pic, const Rect *dst)
 	                      SDL_SCALEMODE_LINEAR);
 }
 
+/* Repeats a picture at 1:1 over an area. Used for the starfield background:
+   stretching it to a larger play area would blur the stars, tiling keeps
+   them crisp next to the unscaled sprites. */
+void SATTilePicture(PicHandle pic, const Rect *area)
+{
+	SDL_Surface *dst = g_curPort->portBits.s;
+	SDL_SetSurfaceBlendMode(pic->s, SDL_BLENDMODE_NONE);
+	for (int y = area->top; y < area->bottom; y += pic->s->h)
+		for (int x = area->left; x < area->right; x += pic->s->w) {
+			SDL_Rect d = { x, y, pic->s->w, pic->s->h };
+			SDL_BlitSurface(pic->s, NULL, dst, &d);
+		}
+}
+
 void DisposeHandle(Handle h)
 {
 	PicHandle p = h;
@@ -651,6 +749,17 @@ OSErr NewScreenBuffer(const Rect *bounds, Boolean purgeable, GDHandle *gd,
 	*h = o;
 	*out = h;
 	return noErr;
+}
+
+void DisposeScreenBuffer(PixMapHandle h)
+{
+	if (!h)
+		return;
+	if (*h) {
+		SDL_DestroySurface((*h)->s);
+		free(*h);
+	}
+	free(h);
 }
 
 void CopyBits(const void *srcBits, void *dstBits, const Rect *srcRect,

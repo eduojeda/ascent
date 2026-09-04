@@ -36,6 +36,9 @@ static void CleanUp(void);
 static void Play(void);
 static void InitNewGame(void);
 static void DrawMenuWindow(void);
+static void LayoutMenu(void);
+static void CreateLimitsBuffer(void);
+static void SavePrefs(void);
 static void DisplaySettingsScreen(void);
 static void DisplayAboutScreen(void);
 static void SetKeys(Controls *keys, const char *playerName);
@@ -51,7 +54,11 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-/* ---- text helper: SDL debug text at a scale, in 800x600 coordinates ---- */
+/* ---- text helper: SDL debug text at a scale, in play-area coordinates ----
+   The overlay screens were laid out for the original 800x600; VC() recentres
+   a "designed for 600 tall" y coordinate on the current play area. */
+
+#define VC(y) ((y) + gSAT.offSizeV / 2 - 300)
 
 static void DrawTextLine(float x, float y, float scale, SDL_Color c,
                          const char *text)
@@ -71,7 +78,8 @@ static float TextWidth(float scale, const char *text)
 static void DrawTextCentered(float y, float scale, SDL_Color c,
                              const char *text)
 {
-	DrawTextLine(400.0f - TextWidth(scale, text) / 2, y, scale, c, text);
+	DrawTextLine(gSAT.offSizeH / 2.0f - TextWidth(scale, text) / 2, y, scale,
+	             c, text);
 }
 
 /* Presents the current composite, then runs `drawText` on top of it and
@@ -106,8 +114,8 @@ static void PauseTextOverlay(void)
 {
 	SDL_Color green = { 60, 255, 60, 255 };
 	SDL_Color grey = { 200, 200, 200, 255 };
-	DrawTextCentered(270, 4, green, "PAUSED");
-	DrawTextCentered(320, 2, grey, "P: resume    Esc: quit to menu");
+	DrawTextCentered(VC(270), 4, green, "PAUSED");
+	DrawTextCentered(VC(320), 2, grey, "P: resume    Esc: quit to menu");
 }
 
 static void Play(void)
@@ -231,6 +239,17 @@ static void MainEventLoop(void)
 		Play();
 	if (SDL_getenv("ASCENT_SHOWSETTINGS")) /* testing hook */
 		DisplaySettingsScreen();
+	if (SDL_getenv("ASCENT_TESTRESIZE")) { /* testing hook: the OK-commit
+		                                      resize path, without the dialog */
+		int w = 0, h = 0;
+		if (SDL_sscanf(SDL_getenv("ASCENT_TESTRESIZE"), "%dx%d", &w, &h) == 2) {
+			SATSetPlayAreaSize(w, h);
+			CreateLimitsBuffer();
+			LayoutMenu();
+			SavePrefs();
+			DrawMenuWindow();
+		}
+	}
 
 	do {
 		if (!SATPumpEvents())
@@ -298,8 +317,124 @@ static void DrawMenuWindow(void)
 
 	SetPort(gSAT.wind.port);
 	SetRect(&backgroundRect, 0, 0, gSAT.offSizeH, gSAT.offSizeV);
-	DrawPicture(backgroundPic, &backgroundRect);
+	SATTilePicture(backgroundPic, &backgroundRect);
 	DrawPicture(menuPic, &menuRect);
+}
+
+/* The menu art and its hover rectangles were laid out for 800x600; on a
+   larger play area the 600-tall design is centered vertically. */
+static void LayoutMenu(void)
+{
+	short cx = gSAT.offSizeH / 2;
+	short top = (gSAT.offSizeV - 600) / 2;
+
+	SetRect(&menuRect, cx - 247, top, cx + 246, top + 391);
+	SetRect(&menuNewGameRect, menuRect.left + 42, top + 164,
+	        menuRect.left + 42 + 305, top + 164 + 47);
+	SetRect(&menuSettingsRect, menuRect.left + 236, top + 237,
+	        menuRect.left + 236 + 257, top + 237 + 60);
+	SetRect(&menuAboutRect, menuRect.left + 25, top + 288,
+	        menuRect.left + 25 + 172, top + 288 + 46);
+	SetRect(&menuQuitRect, menuRect.left + 353, top + 321,
+	        menuRect.left + 353 + 139, top + 321 + 67);
+}
+
+/* The strip buffer DrawLimits saves background into spans the full play-area
+   height, so it is rebuilt whenever the play area changes. */
+static void CreateLimitsBuffer(void)
+{
+	OSErr error;
+
+	if (limitsOffScreenBuffer)
+		DisposeScreenBuffer(limitsOffScreenBuffer);
+	SetRect(&bufferRect, 0, 0, 20, gSAT.offSizeV);
+	error = NewScreenBuffer(&bufferRect, false, &offScreenGD,
+	                        &limitsOffScreenBuffer);
+	(void)error;
+}
+
+/* ---- preferences (persisted across launches) ---- */
+
+static const char *PrefsFilePath(void)
+{
+	static char path[1200];
+	if (!path[0]) {
+		char *dir = SDL_GetPrefPath("", "Ascent");
+		if (!dir)
+			return NULL;
+		SDL_snprintf(path, sizeof path, "%sprefs.txt", dir);
+		SDL_free(dir);
+	}
+	return path;
+}
+
+static void SavePrefs(void)
+{
+	const char *path = PrefsFilePath();
+	if (!path)
+		return;
+	SDL_IOStream *f = SDL_IOFromFile(path, "w");
+	if (!f)
+		return;
+	char buf[512];
+	int n = SDL_snprintf(buf, sizeof buf,
+	    "width=%d\nheight=%d\nlives=%d\npoints=%d\n"
+	    "fast=%d\nsound=%d\nadult=%d\n"
+	    "lskeys=%d,%d,%d,%d,%d,%d,%d\nrskeys=%d,%d,%d,%d,%d,%d,%d\n",
+	    gSAT.offSizeH, gSAT.offSizeV, g.numLives, g.numPoints,
+	    gFastGraphics ? 1 : 0, gSoundOn ? 1 : 0, g.dirtyWordsMode ? 1 : 0,
+	    LSKeys.up, LSKeys.down, LSKeys.left, LSKeys.right, LSKeys.shoot,
+	    LSKeys.special, LSKeys.rotate,
+	    RSKeys.up, RSKeys.down, RSKeys.left, RSKeys.right, RSKeys.shoot,
+	    RSKeys.special, RSKeys.rotate);
+	SDL_WriteIO(f, buf, (size_t)n);
+	SDL_CloseIO(f);
+}
+
+static int ClampSetting(int v) { return v < 1 ? 1 : (v > 99 ? 99 : v); }
+
+static void LoadPrefs(void)
+{
+	const char *path = PrefsFilePath();
+	if (!path)
+		return;
+	size_t len = 0;
+	char *data = SDL_LoadFile(path, &len);
+	if (!data)
+		return;
+	int w = 0, h = 0, v;
+	Controls ls = LSKeys, rs = RSKeys;
+	char *line = data;
+	while (line && *line) {
+		char *next = SDL_strchr(line, '\n');
+		if (next)
+			*next++ = 0;
+		if (SDL_sscanf(line, "width=%d", &w) == 1 ||
+		    SDL_sscanf(line, "height=%d", &h) == 1) {
+		} else if (SDL_sscanf(line, "lives=%d", &v) == 1) {
+			g.numLives = ClampSetting(v);
+		} else if (SDL_sscanf(line, "points=%d", &v) == 1) {
+			g.numPoints = ClampSetting(v);
+		} else if (SDL_sscanf(line, "fast=%d", &v) == 1) {
+			gFastGraphics = v != 0;
+		} else if (SDL_sscanf(line, "sound=%d", &v) == 1) {
+			gSoundOn = v != 0;
+		} else if (SDL_sscanf(line, "adult=%d", &v) == 1) {
+			g.dirtyWordsMode = v != 0;
+		} else if (SDL_sscanf(line, "lskeys=%d,%d,%d,%d,%d,%d,%d", &ls.up,
+		                      &ls.down, &ls.left, &ls.right, &ls.shoot,
+		                      &ls.special, &ls.rotate) == 7) {
+			LSKeys = ls;
+		} else if (SDL_sscanf(line, "rskeys=%d,%d,%d,%d,%d,%d,%d", &rs.up,
+		                      &rs.down, &rs.left, &rs.right, &rs.shoot,
+		                      &rs.special, &rs.rotate) == 7) {
+			RSKeys = rs;
+		}
+		line = next;
+	}
+	SDL_free(data);
+	if (w && h)
+		SATSetPlayAreaSize(w, h);
 }
 
 static void InitNewGame(void)
@@ -444,20 +579,11 @@ static void Initialize(void)
 {
 	OSErr error;
 
-	SATInitToolbox();
-	srand((unsigned)SDL_GetTicks() ^ 0x5eed);
-
-	if (gCanUseGamma)
-		MyFadeToBlack(50);
-
-	/*CREATE BUFFERS*/
-	SetRect(&bufferRect, 0, 0, 300, 200);
-	error = NewScreenBuffer(&bufferRect, false, &offScreenGD,
-	                        &theOffScreenBuffer);
-	SetRect(&bufferRect, 0, 0, 20, gSAT.offSizeV);
-	error = NewScreenBuffer(&bufferRect, false, &offScreenGD,
-	                        &limitsOffScreenBuffer);
-	(void)error;
+	/*DEFAULT SETTINGS (prefs may override)*/
+	g.numLives = 10;
+	g.numPoints = 5;
+	g.gameDone = true;
+	g.dirtyWordsMode = true;
 
 	/*SET STANDARD KEYCODES*/
 	LSKeys.up = kWKeyMap;
@@ -476,37 +602,38 @@ static void Initialize(void)
 	RSKeys.special = kOptionKeyMap;
 	RSKeys.rotate = kCommandKeyMap;
 
+	LoadPrefs(); /* may also request a play-area size for SATInitToolbox */
+
+	SATInitToolbox();
+	srand((unsigned)SDL_GetTicks() ^ 0x5eed);
+
+	if (gCanUseGamma)
+		MyFadeToBlack(50);
+
+	/*CREATE BUFFERS*/
+	SetRect(&bufferRect, 0, 0, 300, 200);
+	error = NewScreenBuffer(&bufferRect, false, &offScreenGD,
+	                        &theOffScreenBuffer);
+	(void)error;
+	CreateLimitsBuffer();
+
 	/*LOAD SOUNDS*/
 	SATSoundInitChannels(6);
 	LoadSounds();
+	if (!gSoundOn)
+		SATSoundOff();
 
 	/*LOAD SPRITE FACES*/
 	LoadFaces();
 
 	/*MENU WINDOW*/
-	SetRect(&menuRect, gSAT.offSizeH / 2 - 247, 0, gSAT.offSizeH / 2 + 246,
-	        391);
-	SetRect(&menuNewGameRect, menuRect.left + 42, 164,
-	        menuRect.left + 42 + 305, 164 + 47);
-	SetRect(&menuSettingsRect, menuRect.left + 236, 237,
-	        menuRect.left + 236 + 257, 237 + 60);
-	SetRect(&menuAboutRect, menuRect.left + 25, 288, menuRect.left + 25 + 172,
-	        288 + 46);
-	SetRect(&menuQuitRect, menuRect.left + 353, 321,
-	        menuRect.left + 353 + 139, 321 + 67);
-
+	LayoutMenu();
 	newGameLitPic = GetPicture(132);
 	settingsLitPic = GetPicture(133);
 	aboutLitPic = GetPicture(134);
 	quitLitPic = GetPicture(135);
 	backgroundPic = GetPicture(128);
 	menuPic = GetPicture(131);
-
-	/*MISC CALLS*/
-	g.numLives = 10;
-	g.numPoints = 5;
-	g.gameDone = true;
-	g.dirtyWordsMode = true;
 
 	DrawMenuWindow();
 	if (gCanUseGamma)
@@ -516,13 +643,14 @@ static void Initialize(void)
 /* ---- settings screen ----
    A faithful redraw of the original DLOG/DITL 128 ("Settings", 274x172),
    recovered from the resource fork, rendered at 2x. Item rectangles and
-   labels are the 2002 ones. */
+   labels are the 2002 ones, except the play-area row, which is a port
+   addition. */
 
 #define DLG_SCALE 2
 #define DLG_W (274 * DLG_SCALE)
 #define DLG_H (172 * DLG_SCALE)
-#define DLG_X ((800 - DLG_W) / 2)
-#define DLG_Y 120
+#define DLG_X ((gSAT.offSizeH - DLG_W) / 2)
+#define DLG_Y VC(120)
 
 typedef struct DlgItem {
 	short l, t, r, b;
@@ -531,7 +659,8 @@ typedef struct DlgItem {
 
 enum {
 	kItOK, kItCancel, kItFastAnim, kItSound, kItAdult,
-	kItLives, kItPoints, kItBlueKeys, kItRedKeys, kItCount
+	kItLives, kItPoints, kItWidth, kItHeight, kItBlueKeys, kItRedKeys,
+	kItCount
 };
 
 static const DlgItem kSettingsItems[kItCount] = {
@@ -542,6 +671,8 @@ static const DlgItem kSettingsItems[kItCount] = {
 	[kItAdult]    = { 10, 58, 116, 76, "Adult Mode" },
 	[kItLives]    = { 190, 20, 214, 37, NULL },
 	[kItPoints]   = { 190, 40, 214, 57, NULL },
+	[kItWidth]    = { 94, 138, 136, 155, NULL },
+	[kItHeight]   = { 150, 138, 192, 155, NULL },
 	[kItBlueKeys] = { 10, 80, 136, 99, "Blue Player Keys..." },
 	[kItRedKeys]  = { 140, 80, 266, 99, "Red Player Keys..." },
 };
@@ -631,8 +762,23 @@ static void DrawEditField(int i, const char *text, Boolean focused)
 
 /* dialog state shared with the draw callback */
 static Boolean s_fast, s_sound, s_adult;
-static char s_lives[4], s_points[4];
-static int s_focus; /* kItLives or kItPoints */
+static char s_lives[4], s_points[4], s_width[8], s_height[8];
+static int s_focus; /* one of the edit-field items */
+
+static char *FocusedField(void)
+{
+	switch (s_focus) {
+	case kItPoints: return s_points;
+	case kItWidth:  return s_width;
+	case kItHeight: return s_height;
+	default:        return s_lives;
+	}
+}
+
+static int FocusedFieldMax(void)
+{
+	return (s_focus == kItWidth || s_focus == kItHeight) ? 4 : 2;
+}
 
 static void DrawSettingsDialog(void)
 {
@@ -648,6 +794,8 @@ static void DrawSettingsDialog(void)
 	DrawCheckbox(kItAdult, s_adult);
 	DrawEditField(kItLives, s_lives, s_focus == kItLives);
 	DrawEditField(kItPoints, s_points, s_focus == kItPoints);
+	DrawEditField(kItWidth, s_width, s_focus == kItWidth);
+	DrawEditField(kItHeight, s_height, s_focus == kItHeight);
 	/* right-aligned against the edit fields; the debug font is wider than
 	   Chicago 12 was, so the DITL's left edges would collide */
 	DrawTextLine(DLG_X + 187 * DLG_SCALE - TextWidth(2, "Lives:"),
@@ -658,6 +806,10 @@ static void DrawSettingsDialog(void)
 	             "(0-99)");
 	DrawTextLine(DLG_X + 220 * DLG_SCALE, DLG_Y + 42 * DLG_SCALE, 2, black,
 	             "(0-99)");
+	DrawTextLine(DLG_X + 10 * DLG_SCALE, DLG_Y + 142 * DLG_SCALE, 2, black,
+	             "Play area:");
+	DrawTextLine(DLG_X + 143 * DLG_SCALE - 8, DLG_Y + 142 * DLG_SCALE, 2,
+	             black, "x");
 }
 
 static Boolean PtInFRect(float x, float y, SDL_FRect r)
@@ -665,10 +817,10 @@ static Boolean PtInFRect(float x, float y, SDL_FRect r)
 	return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 }
 
-static void FieldTypeDigit(char *field, char digit)
+static void FieldTypeDigit(char *field, size_t maxDigits, char digit)
 {
 	size_t n = SDL_strlen(field);
-	if (n >= 2) {
+	if (n >= maxDigits) {
 		field[0] = digit;
 		field[1] = 0;
 	} else {
@@ -684,6 +836,8 @@ static void DisplaySettingsScreen(void)
 	s_adult = g.dirtyWordsMode;
 	SDL_snprintf(s_lives, sizeof s_lives, "%d", g.numLives);
 	SDL_snprintf(s_points, sizeof s_points, "%d", g.numPoints);
+	SDL_snprintf(s_width, sizeof s_width, "%d", gSAT.offSizeH);
+	SDL_snprintf(s_height, sizeof s_height, "%d", gSAT.offSizeV);
 	s_focus = kItLives;
 
 	for (;;) {
@@ -701,19 +855,25 @@ static void DisplaySettingsScreen(void)
 					commit = true;
 				else if (k == SDLK_ESCAPE)
 					cancel = true;
-				else if (k == SDLK_TAB)
-					s_focus = (s_focus == kItLives) ? kItPoints : kItLives;
-				else if (k == SDLK_BACKSPACE) {
-					char *f = (s_focus == kItLives) ? s_lives : s_points;
+				else if (k == SDLK_TAB) {
+					static const int cycle[4] = { kItLives, kItPoints,
+						                          kItWidth, kItHeight };
+					for (int i = 0; i < 4; i++)
+						if (cycle[i] == s_focus) {
+							s_focus = cycle[(i + 1) % 4];
+							break;
+						}
+				} else if (k == SDLK_BACKSPACE) {
+					char *f = FocusedField();
 					size_t n = SDL_strlen(f);
 					if (n)
 						f[n - 1] = 0;
 				} else if (k >= SDLK_0 && k <= SDLK_9)
-					FieldTypeDigit((s_focus == kItLives) ? s_lives : s_points,
+					FieldTypeDigit(FocusedField(), FocusedFieldMax(),
 					               (char)('0' + (k - SDLK_0)));
 				else if (k >= SDLK_KP_1 && k <= SDLK_KP_0) {
 					int d = (k == SDLK_KP_0) ? 0 : (int)(k - SDLK_KP_1) + 1;
-					FieldTypeDigit((s_focus == kItLives) ? s_lives : s_points,
+					FieldTypeDigit(FocusedField(), FocusedFieldMax(),
 					               (char)('0' + d));
 				}
 			}
@@ -736,6 +896,8 @@ static void DisplaySettingsScreen(void)
 			case kItAdult: s_adult = !s_adult; break;
 			case kItLives: s_focus = kItLives; break;
 			case kItPoints: s_focus = kItPoints; break;
+			case kItWidth: s_focus = kItWidth; break;
+			case kItHeight: s_focus = kItHeight; break;
 			case kItBlueKeys:
 				if (!WaitForMouseRelease())
 					return;
@@ -759,10 +921,17 @@ static void DisplaySettingsScreen(void)
 				else
 					SATSoundOff();
 			}
-			int v = SDL_atoi(s_lives);
-			g.numLives = v < 1 ? 1 : (v > 99 ? 99 : v);
-			v = SDL_atoi(s_points);
-			g.numPoints = v < 1 ? 1 : (v > 99 ? 99 : v);
+			g.numLives = ClampSetting(SDL_atoi(s_lives));
+			g.numPoints = ClampSetting(SDL_atoi(s_points));
+			/* an emptied field means "keep the current size" */
+			int w = s_width[0] ? SDL_atoi(s_width) : gSAT.offSizeH;
+			int h = s_height[0] ? SDL_atoi(s_height) : gSAT.offSizeV;
+			if (w != gSAT.offSizeH || h != gSAT.offSizeV) {
+				SATSetPlayAreaSize(w, h);
+				CreateLimitsBuffer();
+				LayoutMenu();
+			}
+			SavePrefs();
 		}
 		if (commit || cancel) {
 			SATSoundPlay(g.menuHighBassSnd, 1, nil);
@@ -788,7 +957,7 @@ static void KeyPromptOverlay(void)
 	/* styled after the original SetKeys dialog (DLOG 129, 242x44, at 2x) */
 	SDL_Color black = { 0, 0, 0, 255 };
 	float w = 242 * DLG_SCALE, h = 44 * DLG_SCALE;
-	SDL_FRect box = { (800 - w) / 2, 240, w, h };
+	SDL_FRect box = { (gSAT.offSizeH - w) / 2, VC(240), w, h };
 	DrawDialogBox(box);
 	DrawTextLine(box.x + box.w / 2 - TextWidth(2, g_keyPlayer) / 2,
 	             box.y + 14, 2, black, g_keyPlayer);
@@ -850,13 +1019,13 @@ static void AboutTextOverlay(void)
 	SDL_Color red = { 220, 40, 40, 255 };
 	SDL_Color green = { 60, 255, 60, 255 };
 	SDL_Color blue = { 120, 140, 255, 255 };
-	DrawTextCentered(280, 3, red, "Version 1.0.1");
-	DrawTextCentered(330, 2, red, "2002, Eduardo Ojeda");
-	DrawTextCentered(365, 2, red,
+	DrawTextCentered(VC(280), 3, red, "Version 1.0.1");
+	DrawTextCentered(VC(330), 2, red, "2002, Eduardo Ojeda");
+	DrawTextCentered(VC(365), 2, red,
 	                 "Made with Ingemar Ragnemalm's Sprite Animation Toolkit");
-	DrawTextCentered(430, 2, green,
+	DrawTextCentered(VC(430), 2, green,
 	                 "SDL3 port, 2026 - rebuilt from the original source");
-	DrawTextCentered(520, 1, blue, "Click to return to the menu");
+	DrawTextCentered(VC(520), 1, blue, "Click to return to the menu");
 }
 
 static void DisplayAboutScreen(void)
@@ -900,6 +1069,7 @@ static void DisplayAboutScreen(void)
 
 static void CleanUp(void)
 {
+	SavePrefs(); /* key bindings can change without passing through OK */
 	SATSoundShutup();
 	ShowCursor();
 	if (gCanUseGamma) {

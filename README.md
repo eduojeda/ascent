@@ -32,6 +32,11 @@ Keys are rebindable in Settings. (The right player's Command/Option
 defaults are the 2002 ones; rebinding them away from the system modifiers
 is kinder on a modern Mac.)
 
+The play area defaults to the largest preset that fits your display
+(800x600 minimum, the 2002 size) and can be changed in Settings.
+Settings and key bindings persist in
+`~/Library/Application Support/Ascent/prefs.txt`.
+
 ## About the port
 
 The original was built with CodeWarrior against the Mac Toolbox
@@ -41,7 +46,9 @@ logic — intact and replaces the platform underneath:
 
 - `src/compat/` reimplements the slice of the SAT API and QuickDraw the
   game uses, on SDL3. Dirty-rect animation became full-frame
-  recomposition at 800x600 (the original resolution).
+  recomposition at the configured play-area size (the 2002 code already
+  derived every position from the SAT screen-size globals, so larger
+  arenas just work; the starfield is tiled rather than stretched).
 - `src/main.c` is new: SDL event loop, menu, settings, pause.
 - The assets are the ORIGINALS, recovered from the 2002 release app's
   resource fork. The fork survived inside `Juego PPC.zip` — a Finder-made
