@@ -161,6 +161,22 @@ def key_border_white(img, threshold=240):
     return img
 
 
+def key_black_glow(img):
+    """Countdown numbers and winner banners are glow art on a black canvas
+    the original never painted (DrawPicture left the starfield showing).
+    Alpha from brightness: black -> transparent, the glow fades smoothly,
+    anything at least half-bright stays opaque."""
+    img = img.convert("RGBA")
+    px = img.load()
+    w, h = img.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, _ = px[x, y]
+            v = max(r, g, b)
+            px[x, y] = (r, g, b, 255 if v >= 128 else v * 2)
+    return img
+
+
 def key_all_white(img, threshold=235):
     img = img.convert("RGBA")
     px = img.load()
@@ -208,6 +224,9 @@ def install_picts():
                 # lit menu items are glow text only: ALL white is background,
                 # including enclosed letter counters
                 img = key_all_white(img)
+            elif rid in (138, 139, 140, 141, 142, 143, 144):
+                # countdown 3/2/1/GO! and the winner banners
+                img = key_black_glow(img)
             img.save(os.path.join(PICS, f"{rid}.png"))
             n += 1
         os.remove(tmp)
