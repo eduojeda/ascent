@@ -179,7 +179,11 @@ static void SetupPlayAreaBuffers(void)
 		SDL_DestroySurface(g_back);
 	g_frameTex = SDL_CreateTexture(g_renderer, SDL_PIXELFORMAT_ARGB8888,
 	                               SDL_TEXTUREACCESS_STREAMING, lw, lh);
-	SDL_SetTextureScaleMode(g_frameTex, SDL_SCALEMODE_LINEAR);
+	/* Zoom magnifies the finished frame by a fraction, which plain linear
+	   filtering turns to mush. PIXELART samples nearest inside a pixel and
+	   only blends across its edges, so the art stays sharp without the
+	   uneven pixel doubling nearest alone would give at 1.3x. */
+	SDL_SetTextureScaleMode(g_frameTex, SDL_SCALEMODE_PIXELART);
 	g_screen = SDL_CreateSurface(lw, lh, SDL_PIXELFORMAT_ARGB8888);
 	g_back = SDL_CreateSurface(lw, lh, SDL_PIXELFORMAT_ARGB8888);
 	SDL_FillSurfaceRect(g_back, NULL, 0xff000000);
@@ -326,6 +330,8 @@ void SATPresent(void)
 	SDL_SetRenderDrawColor(g_renderer, 0, 0, 0, 255);
 	SDL_RenderClear(g_renderer);
 	SDL_RenderTexture(g_renderer, g_frameTex, NULL, NULL);
+	if (SDL_getenv("ASCENT_RENDERSHOT")) /* the magnified image, as displayed */
+		SATDumpRendererShot("frame");
 	SDL_RenderPresent(g_renderer);
 }
 
