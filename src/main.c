@@ -600,17 +600,17 @@ static void Initialize(void)
 	LSKeys.down = kSKeyMap;
 	LSKeys.left = kAKeyMap;
 	LSKeys.right = kDKeyMap;
-	LSKeys.shoot = kControlKeyMap;
-	LSKeys.special = kTabKeyMap;
-	LSKeys.rotate = kShiftKeyMap;
+	LSKeys.shoot = kFKeyMap;
+	LSKeys.special = kHKeyMap;
+	LSKeys.rotate = kGKeyMap;
 
 	RSKeys.up = kUpArrowKeyMap;
 	RSKeys.down = kDownArrowKeyMap;
 	RSKeys.left = kLeftArrowKeyMap;
 	RSKeys.right = kRightArrowKeyMap;
-	RSKeys.shoot = kSpaceKeyMap;
-	RSKeys.special = kOptionKeyMap;
-	RSKeys.rotate = kCommandKeyMap;
+	RSKeys.shoot = kCommaKeyMap;
+	RSKeys.special = kSlashKeyMap;
+	RSKeys.rotate = kPeriodKeyMap;
 
 	LoadPrefs(); /* may also request a play-area size for SATInitToolbox */
 

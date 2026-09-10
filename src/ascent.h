@@ -14,17 +14,17 @@
 #define kDownArrowKeyMap		122
 #define kRightArrowKeyMap		123
 #define kLeftArrowKeyMap		124
-#define kSpaceKeyMap			54
-#define kCommandKeyMap			48
-#define kOptionKeyMap			61
+#define kCommaKeyMap			44
+#define kPeriodKeyMap			40
+#define kSlashKeyMap			43
 
 #define kAKeyMap				7			// key map offsets for left player
 #define	kDKeyMap				5
 #define	kWKeyMap				10
 #define kSKeyMap				6
-#define kControlKeyMap			60
-#define kShiftKeyMap			63	
-#define kTabKeyMap				55
+#define kFKeyMap				4
+#define kGKeyMap				2
+#define kHKeyMap				3
 
 #define kPKeyMap				36
 

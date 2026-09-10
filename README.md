@@ -40,14 +40,12 @@ pillow): `make assets`.
 |                    | Left player (blue) | Right player (red) |
 |--------------------|--------------------|--------------------|
 | Move               | W A S D            | Arrow keys         |
-| Shoot / release    | Control            | Space              |
-| Powerup            | Tab                | Option             |
-| Turn around        | Shift              | Command            |
+| Shoot / release    | F                  | ,                  |
+| Turn around        | G                  | .                  |
+| Powerup            | H                  | /                  |
 
 `P` pauses, `Esc` quits the match, `Cmd+Return` toggles fullscreen.
-Keys are rebindable in Settings. (The right player's Command/Option
-defaults are the 2002 ones; rebinding them away from the system modifiers
-is kinder on a modern Mac.)
+Keys are rebindable in Settings.
 
 The play area defaults to the largest preset that fits your display
 (800x600 minimum, the 2002 size) and can be changed in Settings.
