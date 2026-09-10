@@ -28,6 +28,7 @@ assets:
 	  "recovered/Juego PPC/Juego PPC/Ascent v1.0.1 ƒ/Ascent v1.0.1" \
 	  recovered/resources
 	tools/.venv/bin/python tools/install_original_assets.py
+	tools/.venv/bin/python tools/make_icon.py
 
 APP = Ascent.app/Contents
 bundle: ascent
@@ -35,6 +36,7 @@ bundle: ascent
 	mkdir -p $(APP)/MacOS $(APP)/Resources
 	cp ascent $(APP)/MacOS/Ascent
 	cp -R assets $(APP)/Resources/assets
+	cp assets/Ascent.icns $(APP)/Resources/Ascent.icns
 	printf '%s\n' \
 	  '<?xml version="1.0" encoding="UTF-8"?>' \
 	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
@@ -45,6 +47,7 @@ bundle: ascent
 	  '<key>CFBundleVersion</key><string>1.0.1</string>' \
 	  '<key>CFBundleShortVersionString</key><string>1.0.1</string>' \
 	  '<key>CFBundlePackageType</key><string>APPL</string>' \
+	  '<key>CFBundleIconFile</key><string>Ascent</string>' \
 	  '<key>NSHighResolutionCapable</key><true/>' \
 	  '</dict></plist>' > $(APP)/Info.plist
 	codesign --force --sign - Ascent.app
