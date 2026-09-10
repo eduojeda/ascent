@@ -8,3 +8,4 @@ recovered/
 Ascent - SheepShaver/
 __pycache__/
 *.o.tmp
+third_party/

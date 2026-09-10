@@ -14,6 +14,23 @@ make            # builds ./ascent (run it from the repo root)
 make bundle     # builds Ascent.app
 ```
 
+`make` is the quick local build: host architecture, linked against
+Homebrew's SDL.
+
+`make bundle` builds the version to give to other people. It is universal
+(Apple Silicon and Intel), targets macOS 11 and up, and carries SDL
+inside it, so there is nothing to install on the other machine. The first
+run downloads the official SDL3 frameworks into `third_party/`
+(~50MB, cached and gitignored); `make frameworks` fetches them on their
+own. Don't hand out a `make`-built binary — it is stamped with the build
+machine's macOS version and links Homebrew paths, so other Macs refuse it
+with "You can't use this version of the application with this version of
+macOS".
+
+The app is signed ad-hoc, not notarized. Someone who downloads it will
+have to right-click it and choose Open the first time (or run
+`xattr -dr com.apple.quarantine Ascent.app`).
+
 The prebuilt `assets/` are checked in. To rebuild them from the original
 art (`brew install netpbm`, plus a Python venv in `tools/.venv` with
 pillow): `make assets`.
