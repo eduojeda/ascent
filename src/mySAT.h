@@ -19,7 +19,8 @@ typedef struct SATPort {
 typedef struct SATSprite *SpritePtr;
 
 typedef struct Face {
-	SDL_Surface *surf;
+	SDL_Surface *surf;   /* the art at its own size, in game coordinates */
+	SDL_Surface *drawn;  /* the same art resampled to device pixels */
 	short resNum;
 	short width, height;
 	struct Face *next;
@@ -127,6 +128,7 @@ void SATSetPlayAreaSize(int w, int h);       /* clamped; safe between games */
 void SATSetZoom(int percent);                /* scene magnification, 100 = 1:1 */
 int SATGetZoom(void);                        /* the value actually in use */
 void SATGetPlayAreaSize(int *w, int *h);     /* window size, not gSAT.offSize* */
+float SATDeviceScale(void);                  /* device pixels per game pixel */
 void SATDrawBackground(PicHandle pic, const Rect *area);
 void SATDrawPictureExtendedToTop(PicHandle pic, const Rect *dst);
 extern Boolean gSATQuitRequested;

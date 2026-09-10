@@ -60,11 +60,21 @@ int main(int argc, char *argv[])
 
 #define VC(y) ((y) + gSAT.offSizeV / 2 - 300)
 
+/* These screens draw straight to the renderer, whose coordinates are device
+   pixels, in the same game coordinates as everything else — so each one goes
+   through the same scale the compat layer applies to the composite. */
+static SDL_FRect Dev(SDL_FRect r)
+{
+	float f = SATDeviceScale();
+	return (SDL_FRect){ r.x * f, r.y * f, r.w * f, r.h * f };
+}
+
 static void DrawTextLine(float x, float y, float scale, SDL_Color c,
                          const char *text)
 {
 	SDL_Renderer *r = SATGetRenderer();
-	SDL_SetRenderScale(r, scale, scale);
+	float s = scale * SATDeviceScale();
+	SDL_SetRenderScale(r, s, s);
 	SDL_SetRenderDrawColor(r, c.r, c.g, c.b, 255);
 	SDL_RenderDebugText(r, x / scale, y / scale, text);
 	SDL_SetRenderScale(r, 1, 1);
@@ -699,15 +709,17 @@ static SDL_FRect ItemRect(int i)
 static void RFill(SDL_FRect r, int c1, int c2, int c3)
 {
 	SDL_Renderer *rd = SATGetRenderer();
+	SDL_FRect d = Dev(r);
 	SDL_SetRenderDrawColor(rd, c1, c2, c3, 255);
-	SDL_RenderFillRect(rd, &r);
+	SDL_RenderFillRect(rd, &d);
 }
 
 static void RFrame(SDL_FRect r, int c1, int c2, int c3)
 {
 	SDL_Renderer *rd = SATGetRenderer();
+	SDL_FRect d = Dev(r);
 	SDL_SetRenderDrawColor(rd, c1, c2, c3, 255);
-	SDL_RenderRect(rd, &r);
+	SDL_RenderRect(rd, &d);
 }
 
 static void DrawDialogBox(SDL_FRect box)
@@ -750,9 +762,10 @@ static void DrawCheckbox(int i, Boolean on)
 	RFrame(box, 0, 0, 0);
 	if (on) {
 		SDL_Renderer *rd = SATGetRenderer();
+		SDL_FRect t = Dev((SDL_FRect){ box.x + 2, box.y + 2, 11, 11 });
 		SDL_SetRenderDrawColor(rd, 0, 0, 0, 255);
-		SDL_RenderLine(rd, box.x + 2, box.y + 2, box.x + 13, box.y + 13);
-		SDL_RenderLine(rd, box.x + 13, box.y + 2, box.x + 2, box.y + 13);
+		SDL_RenderLine(rd, t.x, t.y, t.x + t.w, t.y + t.h);
+		SDL_RenderLine(rd, t.x + t.w, t.y, t.x, t.y + t.h);
 	}
 	DrawTextLine(r.x + 24, r.y + r.h / 2 - 8, 2, black,
 	             kSettingsItems[i].label);
@@ -904,8 +917,10 @@ static void DisplaySettingsScreen(void)
 			if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
 			    e.button.button == SDL_BUTTON_LEFT) {
 				SDL_ConvertEventToRenderCoordinates(SATGetRenderer(), &e);
+				float f = SATDeviceScale();
 				for (int i = 0; i < kItCount; i++)
-					if (PtInFRect(e.button.x, e.button.y, ItemRect(i)))
+					if (PtInFRect(e.button.x / f, e.button.y / f,
+					              ItemRect(i)))
 						clicked = i;
 			}
 		}

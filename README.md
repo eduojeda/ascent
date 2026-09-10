@@ -52,10 +52,11 @@ The play area defaults to the largest preset that fits your display
 
 Zoom (also in Settings, 130% by default) magnifies everything, since the
 2002 sprites are a fixed number of pixels and look small on a big
-screen. It works by composing the scene into a smaller area and letting
-the renderer scale it up, so the arena holds proportionally less space as
-you zoom in. It can only go as far as leaves an 800x600 arena, which is
-what the HUD and menu layout need, so a small window allows less zoom.
+screen. It shrinks the game's coordinate space rather than the picture:
+the arena holds proportionally less space as you zoom in, but the frame
+is still drawn at the full window resolution. It can only go as far as
+leaves an 800x600 arena, which is what the HUD and menu layout need, so a
+small window allows less zoom.
 
 Settings and key bindings persist in
 `~/Library/Application Support/Ascent/prefs.txt`.
@@ -71,7 +72,12 @@ logic — intact and replaces the platform underneath:
   game uses, on SDL3. Dirty-rect animation became full-frame
   recomposition at the configured play-area size (the 2002 code already
   derived every position from the SAT screen-size globals, so larger
-  arenas just work). On play areas above 800x600 the starfield is scaled
+  arenas just work). Game coordinates are not screen pixels: zoom decides
+  how many device pixels one game unit is worth, and the compat layer
+  maps every coordinate and resamples sprite art once when it loads, so
+  beams, HUD rules and stars are drawn at the display's own resolution
+  rather than magnified afterwards. On play areas above 800x600 the
+  starfield is scaled
   uniformly to cover and crisp single-pixel stars are re-scattered on top
   at the original density — tiling showed seams, stretching blurred the
   stars.
