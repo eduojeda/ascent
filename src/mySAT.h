@@ -19,8 +19,9 @@ typedef struct SATPort {
 typedef struct SATSprite *SpritePtr;
 
 typedef struct Face {
-	SDL_Surface *surf;   /* the art at its own size, in game coordinates */
-	SDL_Surface *drawn;  /* the same art resampled to device pixels */
+	SDL_Surface *surf;   /* the 2002 art, at the size the game reasons about */
+	SDL_Surface *hires;  /* the surviving render at the same framing, or NULL */
+	SDL_Surface *drawn;  /* the better of the two, resampled to device pixels */
 	short resNum;
 	short width, height;
 	struct Face *next;

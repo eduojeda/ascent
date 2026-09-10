@@ -307,60 +307,88 @@ def digit(n):
     return out
 
 
+def sprite_sources():
+    """(resource id, art file, size, fit_width, mirror, group) for every
+    sprite that has surviving art. Also read by build_hires_sprites.py, which
+    needs to know which render each resource came from; `group` names the
+    animation a resource belongs to, so that one can only be rebuilt from the
+    renders as a whole."""
+    out = [
+        (128, "Ball_ball(cyan).png", (10, 10), None, False, "ball"),
+        (129, "Targets_Blue_Target.png", (10, 30), None, False, "targetB"),
+        (130, "Targets_Red_Target.png", (10, 30), None, False, "targetR"),
+        (131, "Generators_Reciever_Render.png", (23, 10), None, False, "recv"),
+        (132, "Generators_Reciever_Render(off).png", (23, 10), None, False,
+         "recv"),
+        (133, "Generators_Generator_Render.png", (20, 29), None, False, "gen"),
+        (134, "Generators_GeneratorRender(Dead).png", (20, 29), None, False,
+         "gen"),
+        (138, "Goodies_Magnet_Render.png", (18, 16), None, False, "magnet"),
+        (139, "Goodies_BallShot.png", (22, 8), None, False, "ballshot"),
+        (141, "Rocket_RocketLeft.png", (30, 8), None, False, "rocket"),
+        (140, "Rocket_RocketLeft.png", (30, 8), None, True, "rocket"),
+    ]
+    for i in range(5):  # goodie animation
+        out.append((160 + i, f"Goodies_{i}.png", (20, 18), None, False,
+                    "goodie"))
+
+    # missiles: one surviving render, five animation slots each direction
+    for i in range(5):
+        out.append((510 + i, "Missile_MissileL0.png", (25, 14), None, False,
+                    "missile"))
+        out.append((500 + i, "Missile_MissileL0.png", (25, 14), None, True,
+                    "missile"))
+
+    # ships: files -3..4 are the eight engine-tilt frames, facing right
+    tilt = ["-3", "-2", "-1", "0", "1", "2", "3", "4"]
+    for i, t in enumerate(tilt):
+        out.append((1000 + i, f"Ships_B_{t}B.png", (45, 28), None, False,
+                    "ship"))
+        out.append((1100 + i, f"Ships_B_{t}B.png", (45, 28), None, True,
+                    "ship"))
+        out.append((2000 + i, f"Ships_R_{t}R.png", (45, 28), None, False,
+                    "ship"))
+        out.append((2100 + i, f"Ships_R_{t}R.png", (45, 28), None, True,
+                    "ship"))
+    # rotation: angled, head-on, mirrored angled
+    out += [
+        (1200, "Ships_B_R1B.png", (45, 28), None, False, "ship"),
+        (1201, "Ships_B_R2B.png", (45, 28), None, False, "ship"),
+        (1202, "Ships_B_R1B.png", (45, 28), None, True, "ship"),
+        (2200, "Ships_R_R1R.png", (45, 28), None, False, "ship"),
+        (2201, "Ships_R_R2R.png", (45, 28), None, False, "ship"),
+        (2202, "Ships_R_R1R.png", (45, 28), None, True, "ship"),
+    ]
+
+    # bases: 0..6 then the fully-closed still
+    for i in range(7):
+        out.append((700 + i, f"Bases_BlueBase{i}.png", (64, 42), None, False,
+                    "base"))
+        out.append((800 + i, f"Bases_RedBase{i}.png", (64, 42), None, False,
+                    "base"))
+    out.append((707, "Bases_BlueBase.png", (64, 42), None, False, "base"))
+    out.append((807, "Bases_RedBase.png", (64, 42), None, False, "base"))
+
+    for i in range(6):  # ball spawner
+        out.append((900 + i, f"Ball_Spawner_BS{i + 1}.png", None, 32, False,
+                    "spawner"))
+
+    for i in range(7):  # body debris
+        out.append((3000 + i, f"Ships_Debris_body{i}.png", None, 30, False,
+                    "debris"))
+    for i, src in enumerate([0, 2, 2, 3, 4]):  # engine1 file is corrupt
+        out.append((3100 + i, f"Ships_Debris_engine{src}.png", None, 20, False,
+                    "debris"))
+    return out
+
+
 def main():
     os.makedirs(SPRITES, exist_ok=True)
     os.makedirs(PICS, exist_ok=True)
 
     # ---- sprites from surviving art ----
-    sprite(128, "Ball_ball(cyan).png", size=(10, 10))
-    sprite(129, "Targets_Blue_Target.png", size=(10, 30))
-    sprite(130, "Targets_Red_Target.png", size=(10, 30))
-    sprite(131, "Generators_Reciever_Render.png", size=(23, 10))
-    sprite(132, "Generators_Reciever_Render(off).png", size=(23, 10))
-    sprite(133, "Generators_Generator_Render.png", size=(20, 29))
-    sprite(134, "Generators_GeneratorRender(Dead).png", size=(20, 29))
-    sprite(138, "Goodies_Magnet_Render.png", size=(18, 16))
-    sprite(139, "Goodies_BallShot.png", size=(22, 8))
-    sprite(141, "Rocket_RocketLeft.png", size=(30, 8))
-    sprite(140, "Rocket_RocketLeft.png", size=(30, 8), mirror=True)
-
-    for i in range(5):  # goodie animation
-        sprite(160 + i, f"Goodies_{i}.png", size=(20, 18))
-
-    # missiles: one surviving render, five animation slots each direction
-    for i in range(5):
-        sprite(510 + i, "Missile_MissileL0.png", size=(25, 14))
-        sprite(500 + i, "Missile_MissileL0.png", size=(25, 14), mirror=True)
-
-    # ships: files -3..4 are the eight engine-tilt frames, facing right
-    tilt = ["-3", "-2", "-1", "0", "1", "2", "3", "4"]
-    for i, t in enumerate(tilt):
-        sprite(1000 + i, f"Ships_B_{t}B.png", size=(45, 28))
-        sprite(1100 + i, f"Ships_B_{t}B.png", size=(45, 28), mirror=True)
-        sprite(2000 + i, f"Ships_R_{t}R.png", size=(45, 28))
-        sprite(2100 + i, f"Ships_R_{t}R.png", size=(45, 28), mirror=True)
-    # rotation: angled, head-on, mirrored angled
-    sprite(1200, "Ships_B_R1B.png", size=(45, 28))
-    sprite(1201, "Ships_B_R2B.png", size=(45, 28))
-    sprite(1202, "Ships_B_R1B.png", size=(45, 28), mirror=True)
-    sprite(2200, "Ships_R_R1R.png", size=(45, 28))
-    sprite(2201, "Ships_R_R2R.png", size=(45, 28))
-    sprite(2202, "Ships_R_R1R.png", size=(45, 28), mirror=True)
-
-    # bases: 0..6 then the fully-closed still
-    for i in range(7):
-        sprite(700 + i, f"Bases_BlueBase{i}.png", size=(64, 42))
-        sprite(800 + i, f"Bases_RedBase{i}.png", size=(64, 42))
-    sprite(707, "Bases_BlueBase.png", size=(64, 42))
-    sprite(807, "Bases_RedBase.png", size=(64, 42))
-
-    for i in range(6):  # ball spawner
-        sprite(900 + i, f"Ball_Spawner_BS{i + 1}.png", fit_width=32)
-
-    for i in range(7):  # body debris
-        sprite(3000 + i, f"Ships_Debris_body{i}.png", fit_width=30)
-    for i, src in enumerate([0, 2, 2, 3, 4]):  # engine1 file is corrupt
-        sprite(3100 + i, f"Ships_Debris_engine{src}.png", fit_width=20)
+    for res_id, src, size, fit_width, mirror, _group in sprite_sources():
+        sprite(res_id, src, size=size, fit_width=fit_width, mirror=mirror)
 
     # ---- regenerated sprites (originals lost with the resource fork) ----
     for i in range(8):

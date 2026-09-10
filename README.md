@@ -82,6 +82,18 @@ logic — intact and replaces the platform underneath:
   at the original density — tiling showed seams, stretching blurred the
   stars.
 - `src/main.c` is new: SDL event loop, menu, settings, pause.
+- `assets/sprites/hires/` holds higher-resolution copies of the sprites
+  the engine reduces to whatever size the zoom asks for, instead of
+  enlarging the 45x34 originals. They come from the 3D renders in
+  `Development Stuff/`, which survive at around five times the sprite
+  size — the 2002 build shrank them to fit Classic Mac.
+  `tools/build_hires_sprites.py` fits each render onto the shipped
+  sprite's silhouette so nothing shifts against its collision rectangle,
+  works out which way round it goes by measuring rather than trusting the
+  reconstruction pipeline's mirror flags, and refuses any animation whose
+  silhouettes disagree — the bases, missiles, receivers, magnet and
+  debris renders are not the art that shipped, so those keep their 2002
+  sprites.
 - The assets are the ORIGINALS, recovered from the 2002 release app's
   resource fork. The fork survived inside `Juego PPC.zip` — a Finder-made
   backup of the old dev machine whose `__MACOSX` AppleDouble entries

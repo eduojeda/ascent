@@ -43,6 +43,7 @@ assets:
 	  "recovered/Juego PPC/Juego PPC/Ascent v1.0.1 ƒ/Ascent v1.0.1" \
 	  recovered/resources
 	tools/.venv/bin/python tools/install_original_assets.py
+	tools/.venv/bin/python tools/build_hires_sprites.py
 	tools/.venv/bin/python tools/make_icon.py
 
 APP = Ascent.app/Contents

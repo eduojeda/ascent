@@ -657,17 +657,17 @@ void SATOverlayClear(void)
 
 static void SetFaceDrawn(FacePtr f)
 {
+	SDL_Surface *from = f->hires ? f->hires : f->surf;
 	int dw = DP(f->width), dh = DP(f->height);
 
-	if (f->drawn && f->drawn != f->surf)
+	if (f->drawn && f->drawn != f->surf && f->drawn != f->hires)
 		SDL_DestroySurface(f->drawn);
 	if (dw < 1)
 		dw = 1;
 	if (dh < 1)
 		dh = 1;
-	f->drawn = (dw == f->surf->w && dh == f->surf->h)
-	               ? f->surf
-	               : ResampleArea(f->surf, dw, dh);
+	f->drawn = (dw == from->w && dh == from->h) ? from
+	                                            : ResampleArea(from, dw, dh);
 	SDL_SetSurfaceBlendMode(f->drawn, SDL_BLENDMODE_BLEND);
 }
 
@@ -695,8 +695,12 @@ FacePtr SATGetFace(short resNum)
 	FacePtr f = calloc(1, sizeof *f);
 	f->surf = s;
 	f->resNum = resNum;
+	/* The 2002 art fixes the size the game reasons about; where the render
+	   it was shrunk from survives, that is what actually gets drawn. */
 	f->width = s->w;
 	f->height = s->h;
+	snprintf(rel, sizeof rel, "sprites/hires/%d.png", resNum);
+	f->hires = LoadPNG(rel);
 	SetFaceDrawn(f);
 	f->next = g_faceCache;
 	g_faceCache = f;
