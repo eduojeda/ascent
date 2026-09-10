@@ -321,7 +321,7 @@ void SATCustomInit(short pictID, short bwpictID, Rect *area, WindowPtr wind,
 	SetRect(&full, 0, 0, g_gameW, g_gameH);
 	GrafPtr save = GetCurrentPort();
 	SetPort(&g_backPort);
-	SATTilePicture(bg, &full);
+	SATDrawBackground(bg, &full);
 	SetPort(save);
 	DisposeHandle((Handle)bg);
 	SDL_BlitSurface(g_back, NULL, g_screen, NULL);
@@ -709,18 +709,57 @@ void DrawPicture(PicHandle pic, const Rect *dst)
 	                      SDL_SCALEMODE_LINEAR);
 }
 
-/* Repeats a picture at 1:1 over an area. Used for the starfield background:
-   stretching it to a larger play area would blur the stars, tiling keeps
-   them crisp next to the unscaled sprites. */
-void SATTilePicture(PicHandle pic, const Rect *area)
+/* Fills an area with the starfield background. At the original size the
+   picture is used untouched. On a larger play area, tiling shows seams and
+   stretching blurs the stars, so: the picture is scaled uniformly to cover
+   (the nebula scales well), slightly dimmed, and single-pixel stars are
+   re-scattered on top at the original density — from a fixed-seed local
+   generator, so the field is stable between redraws and doesn't disturb
+   the game's rand() sequence. */
+void SATDrawBackground(PicHandle pic, const Rect *area)
 {
 	SDL_Surface *dst = g_curPort->portBits.s;
+	int aw = area->right - area->left, ah = area->bottom - area->top;
+	int sw = pic->s->w, sh = pic->s->h;
+
 	SDL_SetSurfaceBlendMode(pic->s, SDL_BLENDMODE_NONE);
-	for (int y = area->top; y < area->bottom; y += pic->s->h)
-		for (int x = area->left; x < area->right; x += pic->s->w) {
-			SDL_Rect d = { x, y, pic->s->w, pic->s->h };
-			SDL_BlitSurface(pic->s, NULL, dst, &d);
-		}
+	if (aw <= sw && ah <= sh) {
+		SDL_Rect d = { area->left, area->top, sw, sh };
+		SDL_BlitSurface(pic->s, NULL, dst, &d);
+		return;
+	}
+
+	/* uniform scale to cover, center crop */
+	double s = (double)aw / sw;
+	if ((double)ah / sh > s)
+		s = (double)ah / sh;
+	int bw = (int)(sw * s + 0.5), bh = (int)(sh * s + 0.5);
+	SDL_Rect d = { area->left - (bw - aw) / 2, area->top - (bh - ah) / 2,
+		           bw, bh };
+	SDL_SetSurfaceColorMod(pic->s, 230, 230, 230);
+	SDL_BlitSurfaceScaled(pic->s, NULL, dst, &d, SDL_SCALEMODE_LINEAR);
+	SDL_SetSurfaceColorMod(pic->s, 255, 255, 255);
+
+	static const Uint8 mags[6] = { 90, 120, 150, 190, 230, 255 };
+	long stars = (long)(420.0 * aw * ah / (800.0 * 600.0) + 0.5);
+	Uint32 rng = 0x20020901u;
+	Uint32 *px = dst->pixels;
+	int pitch = dst->pitch / 4;
+	for (long i = 0; i < stars; i++) {
+		rng = rng * 1664525u + 1013904223u;
+		int x = area->left + (int)((rng >> 8) % (Uint32)aw);
+		rng = rng * 1664525u + 1013904223u;
+		int y = area->top + (int)((rng >> 8) % (Uint32)ah);
+		rng = rng * 1664525u + 1013904223u;
+		Uint32 v = mags[(rng >> 8) % 6];
+		Uint32 old = px[y * pitch + x];
+		Uint32 r = (old >> 16) & 0xff, g = (old >> 8) & 0xff, b = old & 0xff;
+		Uint32 vb = v + 20 > 255 ? 255 : v + 20;
+		if (r < v) r = v;
+		if (g < v) g = v;
+		if (b < vb) b = vb;
+		px[y * pitch + x] = 0xff000000u | (r << 16) | (g << 8) | b;
+	}
 }
 
 void DisposeHandle(Handle h)

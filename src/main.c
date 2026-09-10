@@ -317,7 +317,7 @@ static void DrawMenuWindow(void)
 
 	SetPort(gSAT.wind.port);
 	SetRect(&backgroundRect, 0, 0, gSAT.offSizeH, gSAT.offSizeV);
-	SATTilePicture(backgroundPic, &backgroundRect);
+	SATDrawBackground(backgroundPic, &backgroundRect);
 	DrawPicture(menuPic, &menuRect);
 }
 

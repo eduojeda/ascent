@@ -48,7 +48,10 @@ logic — intact and replaces the platform underneath:
   game uses, on SDL3. Dirty-rect animation became full-frame
   recomposition at the configured play-area size (the 2002 code already
   derived every position from the SAT screen-size globals, so larger
-  arenas just work; the starfield is tiled rather than stretched).
+  arenas just work). On play areas above 800x600 the starfield is scaled
+  uniformly to cover and crisp single-pixel stars are re-scattered on top
+  at the original density — tiling showed seams, stretching blurred the
+  stars.
 - `src/main.c` is new: SDL event loop, menu, settings, pause.
 - The assets are the ORIGINALS, recovered from the 2002 release app's
   resource fork. The fork survived inside `Juego PPC.zip` — a Finder-made
