@@ -20,6 +20,33 @@
 static int g_gameW = MIN_GAME_W, g_gameH = MIN_GAME_H;
 static Boolean g_sizeRequested; /* a size was set before the window existed */
 
+/* Sprites are drawn at the fixed pixel sizes of the 2002 art, so on a big
+   play area they look tiny. Rather than rescale the art and every hard-coded
+   rectangle in the game code, the scene is composed into a smaller area and
+   the renderer magnifies it: at 130 the whole image, sprites included, is
+   30% bigger and the arena holds proportionally less space. */
+static int g_zoom = 130; /* percent */
+
+static int ZoomedLogical(int windowPx, int minPx)
+{
+	int v = windowPx * 100 / g_zoom;
+	return v < minPx ? minPx : v;
+}
+
+/* Zooming shrinks the arena, so it can only go as far as the 800x600 the
+   2002 HUD and menu layout need. A small window therefore allows less zoom. */
+static void ClampZoom(void)
+{
+	int byW = g_gameW * 100 / MIN_GAME_W;
+	int byH = g_gameH * 100 / MIN_GAME_H;
+	int max = byW < byH ? byW : byH;
+
+	if (g_zoom > max)
+		g_zoom = max;
+	if (g_zoom < 100)
+		g_zoom = 100;
+}
+
 SATglobalsRec gSAT;
 Boolean gSATQuitRequested = false;
 
@@ -138,6 +165,12 @@ static void PickDefaultSize(void)
 
 static void SetupPlayAreaBuffers(void)
 {
+	int lw, lh;
+
+	ClampZoom();
+	lw = ZoomedLogical(g_gameW, MIN_GAME_W);
+	lh = ZoomedLogical(g_gameH, MIN_GAME_H);
+
 	if (g_frameTex)
 		SDL_DestroyTexture(g_frameTex);
 	if (g_screen)
@@ -145,27 +178,27 @@ static void SetupPlayAreaBuffers(void)
 	if (g_back)
 		SDL_DestroySurface(g_back);
 	g_frameTex = SDL_CreateTexture(g_renderer, SDL_PIXELFORMAT_ARGB8888,
-	                               SDL_TEXTUREACCESS_STREAMING, g_gameW,
-	                               g_gameH);
-	g_screen = SDL_CreateSurface(g_gameW, g_gameH, SDL_PIXELFORMAT_ARGB8888);
-	g_back = SDL_CreateSurface(g_gameW, g_gameH, SDL_PIXELFORMAT_ARGB8888);
+	                               SDL_TEXTUREACCESS_STREAMING, lw, lh);
+	SDL_SetTextureScaleMode(g_frameTex, SDL_SCALEMODE_LINEAR);
+	g_screen = SDL_CreateSurface(lw, lh, SDL_PIXELFORMAT_ARGB8888);
+	g_back = SDL_CreateSurface(lw, lh, SDL_PIXELFORMAT_ARGB8888);
 	SDL_FillSurfaceRect(g_back, NULL, 0xff000000);
 	SDL_FillSurfaceRect(g_screen, NULL, 0xff000000);
 	g_screenPort.portBits.s = g_screen;
-	SetRect(&g_screenPort.portRect, 0, 0, g_gameW, g_gameH);
+	SetRect(&g_screenPort.portRect, 0, 0, lw, lh);
 	g_backPort.portBits.s = g_back;
-	SetRect(&g_backPort.portRect, 0, 0, g_gameW, g_gameH);
+	SetRect(&g_backPort.portRect, 0, 0, lw, lh);
 
 	gSAT.wind.port = &g_screenPort;
-	SetRect(&gSAT.wind.bounds, 0, 0, g_gameW, g_gameH);
+	SetRect(&gSAT.wind.bounds, 0, 0, lw, lh);
 	gSAT.offScreen.port = &g_screenPort;
 	gSAT.offScreen.bounds = gSAT.wind.bounds;
 	gSAT.backScreen.port = &g_backPort;
 	gSAT.backScreen.bounds = gSAT.wind.bounds;
-	gSAT.offSizeH = (short)g_gameW;
-	gSAT.offSizeV = (short)g_gameH;
+	gSAT.offSizeH = (short)lw;
+	gSAT.offSizeV = (short)lh;
 
-	SDL_SetRenderLogicalPresentation(g_renderer, g_gameW, g_gameH,
+	SDL_SetRenderLogicalPresentation(g_renderer, lw, lh,
 	                                 SDL_LOGICAL_PRESENTATION_LETTERBOX);
 }
 
@@ -220,6 +253,33 @@ void SATSetPlayAreaSize(int w, int h)
 		SDL_SetWindowPosition(g_window, SDL_WINDOWPOS_CENTERED,
 		                      SDL_WINDOWPOS_CENTERED);
 	}
+}
+
+/* Magnification of the whole scene, in percent. Safe between games only,
+   for the same reason as SATSetPlayAreaSize. */
+void SATSetZoom(int percent)
+{
+	if (percent < 100)
+		percent = 100;
+	if (percent > 400)
+		percent = 400;
+	if (percent == g_zoom)
+		return;
+	g_zoom = percent;
+	/* before the window exists the real size is unknown; the setup path
+	   clamps against it later */
+	if (g_window)
+		SetupPlayAreaBuffers();
+}
+
+int SATGetZoom(void) { return g_zoom; }
+
+/* The window size the user chose. Distinct from gSAT.offSize*, which is the
+   smaller area the scene is composed into when zoomed. */
+void SATGetPlayAreaSize(int *w, int *h)
+{
+	*w = g_gameW;
+	*h = g_gameH;
 }
 
 /* Testing hooks: ASCENT_SHOTDIR dumps the composite every 30 presents;
@@ -318,7 +378,7 @@ void SATCustomInit(short pictID, short bwpictID, Rect *area, WindowPtr wind,
 
 	PicHandle bg = GetPicture(pictID);
 	Rect full;
-	SetRect(&full, 0, 0, g_gameW, g_gameH);
+	SetRect(&full, 0, 0, gSAT.offSizeH, gSAT.offSizeV);
 	GrafPtr save = GetCurrentPort();
 	SetPort(&g_backPort);
 	SATDrawBackground(bg, &full);
@@ -768,6 +828,8 @@ void SATDrawBackground(PicHandle pic, const Rect *area)
 		int y = area->top + (int)((rng >> 8) % (Uint32)ah);
 		rng = rng * 1664525u + 1013904223u;
 		Uint32 v = mags[(rng >> 8) % 6];
+		if (x < 0 || y < 0 || x >= dst->w || y >= dst->h)
+			continue;
 		Uint32 old = px[y * pitch + x];
 		Uint32 r = (old >> 16) & 0xff, g = (old >> 8) & 0xff, b = old & 0xff;
 		Uint32 vb = v + 20 > 255 ? 255 : v + 20;

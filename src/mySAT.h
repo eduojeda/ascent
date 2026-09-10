@@ -124,6 +124,9 @@ void SATOverlayClear(void);
 void SATSetGammaLevel(int percent);          /* 0 = black, 100 = full */
 Boolean SATPumpEvents(void);                 /* returns false on quit request */
 void SATSetPlayAreaSize(int w, int h);       /* clamped; safe between games */
+void SATSetZoom(int percent);                /* scene magnification, 100 = 1:1 */
+int SATGetZoom(void);                        /* the value actually in use */
+void SATGetPlayAreaSize(int *w, int *h);     /* window size, not gSAT.offSize* */
 void SATDrawBackground(PicHandle pic, const Rect *area);
 void SATDrawPictureExtendedToTop(PicHandle pic, const Rect *dst);
 extern Boolean gSATQuitRequested;

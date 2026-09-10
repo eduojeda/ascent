@@ -381,12 +381,14 @@ static void SavePrefs(void)
 	SDL_IOStream *f = SDL_IOFromFile(path, "w");
 	if (!f)
 		return;
+	int winW, winH;
+	SATGetPlayAreaSize(&winW, &winH);
 	char buf[512];
 	int n = SDL_snprintf(buf, sizeof buf,
-	    "width=%d\nheight=%d\nlives=%d\npoints=%d\n"
+	    "width=%d\nheight=%d\nzoom=%d\nlives=%d\npoints=%d\n"
 	    "fast=%d\nsound=%d\nadult=%d\n"
 	    "lskeys=%d,%d,%d,%d,%d,%d,%d\nrskeys=%d,%d,%d,%d,%d,%d,%d\n",
-	    gSAT.offSizeH, gSAT.offSizeV, g.numLives, g.numPoints,
+	    winW, winH, SATGetZoom(), g.numLives, g.numPoints,
 	    gFastGraphics ? 1 : 0, gSoundOn ? 1 : 0, g.dirtyWordsMode ? 1 : 0,
 	    LSKeys.up, LSKeys.down, LSKeys.left, LSKeys.right, LSKeys.shoot,
 	    LSKeys.special, LSKeys.rotate,
@@ -407,7 +409,7 @@ static void LoadPrefs(void)
 	char *data = SDL_LoadFile(path, &len);
 	if (!data)
 		return;
-	int w = 0, h = 0, v;
+	int w = 0, h = 0, zoom = 0, v;
 	Controls ls = LSKeys, rs = RSKeys;
 	char *line = data;
 	while (line && *line) {
@@ -415,7 +417,8 @@ static void LoadPrefs(void)
 		if (next)
 			*next++ = 0;
 		if (SDL_sscanf(line, "width=%d", &w) == 1 ||
-		    SDL_sscanf(line, "height=%d", &h) == 1) {
+		    SDL_sscanf(line, "height=%d", &h) == 1 ||
+		    SDL_sscanf(line, "zoom=%d", &zoom) == 1) {
 		} else if (SDL_sscanf(line, "lives=%d", &v) == 1) {
 			g.numLives = ClampSetting(v);
 		} else if (SDL_sscanf(line, "points=%d", &v) == 1) {
@@ -440,6 +443,8 @@ static void LoadPrefs(void)
 	SDL_free(data);
 	if (w && h)
 		SATSetPlayAreaSize(w, h);
+	if (zoom)
+		SATSetZoom(zoom);
 }
 
 static void InitNewGame(void)
@@ -664,8 +669,8 @@ typedef struct DlgItem {
 
 enum {
 	kItOK, kItCancel, kItFastAnim, kItSound, kItAdult,
-	kItLives, kItPoints, kItWidth, kItHeight, kItBlueKeys, kItRedKeys,
-	kItCount
+	kItLives, kItPoints, kItWidth, kItHeight, kItZoom, kItBlueKeys,
+	kItRedKeys, kItCount
 };
 
 static const DlgItem kSettingsItems[kItCount] = {
@@ -678,6 +683,7 @@ static const DlgItem kSettingsItems[kItCount] = {
 	[kItPoints]   = { 190, 40, 214, 57, NULL },
 	[kItWidth]    = { 94, 138, 136, 155, NULL },
 	[kItHeight]   = { 150, 138, 192, 155, NULL },
+	[kItZoom]     = { 94, 114, 136, 131, NULL },
 	[kItBlueKeys] = { 10, 80, 136, 99, "Blue Player Keys..." },
 	[kItRedKeys]  = { 140, 80, 266, 99, "Red Player Keys..." },
 };
@@ -767,7 +773,7 @@ static void DrawEditField(int i, const char *text, Boolean focused)
 
 /* dialog state shared with the draw callback */
 static Boolean s_fast, s_sound, s_adult;
-static char s_lives[4], s_points[4], s_width[8], s_height[8];
+static char s_lives[4], s_points[4], s_width[8], s_height[8], s_zoom[8];
 static int s_focus; /* one of the edit-field items */
 
 static char *FocusedField(void)
@@ -776,13 +782,16 @@ static char *FocusedField(void)
 	case kItPoints: return s_points;
 	case kItWidth:  return s_width;
 	case kItHeight: return s_height;
+	case kItZoom:   return s_zoom;
 	default:        return s_lives;
 	}
 }
 
 static int FocusedFieldMax(void)
 {
-	return (s_focus == kItWidth || s_focus == kItHeight) ? 4 : 2;
+	if (s_focus == kItWidth || s_focus == kItHeight)
+		return 4;
+	return (s_focus == kItZoom) ? 3 : 2;
 }
 
 static void DrawSettingsDialog(void)
@@ -801,6 +810,7 @@ static void DrawSettingsDialog(void)
 	DrawEditField(kItPoints, s_points, s_focus == kItPoints);
 	DrawEditField(kItWidth, s_width, s_focus == kItWidth);
 	DrawEditField(kItHeight, s_height, s_focus == kItHeight);
+	DrawEditField(kItZoom, s_zoom, s_focus == kItZoom);
 	/* right-aligned against the edit fields; the debug font is wider than
 	   Chicago 12 was, so the DITL's left edges would collide */
 	DrawTextLine(DLG_X + 187 * DLG_SCALE - TextWidth(2, "Lives:"),
@@ -815,6 +825,10 @@ static void DrawSettingsDialog(void)
 	             "Play area:");
 	DrawTextLine(DLG_X + 143 * DLG_SCALE - 8, DLG_Y + 142 * DLG_SCALE, 2,
 	             black, "x");
+	DrawTextLine(DLG_X + 10 * DLG_SCALE, DLG_Y + 118 * DLG_SCALE, 2, black,
+	             "Zoom:");
+	DrawTextLine(DLG_X + 140 * DLG_SCALE, DLG_Y + 118 * DLG_SCALE, 2, black,
+	             "%");
 }
 
 static Boolean PtInFRect(float x, float y, SDL_FRect r)
@@ -841,8 +855,11 @@ static void DisplaySettingsScreen(void)
 	s_adult = g.dirtyWordsMode;
 	SDL_snprintf(s_lives, sizeof s_lives, "%d", g.numLives);
 	SDL_snprintf(s_points, sizeof s_points, "%d", g.numPoints);
-	SDL_snprintf(s_width, sizeof s_width, "%d", gSAT.offSizeH);
-	SDL_snprintf(s_height, sizeof s_height, "%d", gSAT.offSizeV);
+	int winW, winH;
+	SATGetPlayAreaSize(&winW, &winH);
+	SDL_snprintf(s_width, sizeof s_width, "%d", winW);
+	SDL_snprintf(s_height, sizeof s_height, "%d", winH);
+	SDL_snprintf(s_zoom, sizeof s_zoom, "%d", SATGetZoom());
 	s_focus = kItLives;
 
 	for (;;) {
@@ -861,11 +878,13 @@ static void DisplaySettingsScreen(void)
 				else if (k == SDLK_ESCAPE)
 					cancel = true;
 				else if (k == SDLK_TAB) {
-					static const int cycle[4] = { kItLives, kItPoints,
-						                          kItWidth, kItHeight };
-					for (int i = 0; i < 4; i++)
+					static const int cycle[] = { kItLives, kItPoints,
+						                         kItZoom, kItWidth,
+						                         kItHeight };
+					int n = (int)SDL_arraysize(cycle);
+					for (int i = 0; i < n; i++)
 						if (cycle[i] == s_focus) {
-							s_focus = cycle[(i + 1) % 4];
+							s_focus = cycle[(i + 1) % n];
 							break;
 						}
 				} else if (k == SDLK_BACKSPACE) {
@@ -903,6 +922,7 @@ static void DisplaySettingsScreen(void)
 			case kItPoints: s_focus = kItPoints; break;
 			case kItWidth: s_focus = kItWidth; break;
 			case kItHeight: s_focus = kItHeight; break;
+			case kItZoom: s_focus = kItZoom; break;
 			case kItBlueKeys:
 				if (!WaitForMouseRelease())
 					return;
@@ -928,11 +948,15 @@ static void DisplaySettingsScreen(void)
 			}
 			g.numLives = ClampSetting(SDL_atoi(s_lives));
 			g.numPoints = ClampSetting(SDL_atoi(s_points));
-			/* an emptied field means "keep the current size" */
-			int w = s_width[0] ? SDL_atoi(s_width) : gSAT.offSizeH;
-			int h = s_height[0] ? SDL_atoi(s_height) : gSAT.offSizeV;
-			if (w != gSAT.offSizeH || h != gSAT.offSizeV) {
+			/* an emptied field means "keep the current value" */
+			int curW, curH;
+			SATGetPlayAreaSize(&curW, &curH);
+			int w = s_width[0] ? SDL_atoi(s_width) : curW;
+			int h = s_height[0] ? SDL_atoi(s_height) : curH;
+			int z = s_zoom[0] ? SDL_atoi(s_zoom) : SATGetZoom();
+			if (w != curW || h != curH || z != SATGetZoom()) {
 				SATSetPlayAreaSize(w, h);
+				SATSetZoom(z);
 				CreateLimitsBuffer();
 				LayoutMenu();
 			}

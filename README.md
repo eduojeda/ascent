@@ -51,6 +51,14 @@ is kinder on a modern Mac.)
 
 The play area defaults to the largest preset that fits your display
 (800x600 minimum, the 2002 size) and can be changed in Settings.
+
+Zoom (also in Settings, 130% by default) magnifies everything, since the
+2002 sprites are a fixed number of pixels and look small on a big
+screen. It works by composing the scene into a smaller area and letting
+the renderer scale it up, so the arena holds proportionally less space as
+you zoom in. It can only go as far as leaves an 800x600 arena, which is
+what the HUD and menu layout need, so a small window allows less zoom.
+
 Settings and key bindings persist in
 `~/Library/Application Support/Ascent/prefs.txt`.
 
