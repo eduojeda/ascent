@@ -318,15 +318,20 @@ static void DrawMenuWindow(void)
 	SetPort(gSAT.wind.port);
 	SetRect(&backgroundRect, 0, 0, gSAT.offSizeH, gSAT.offSizeV);
 	SATDrawBackground(backgroundPic, &backgroundRect);
-	DrawPicture(menuPic, &menuRect);
+	SATDrawPictureExtendedToTop(menuPic, &menuRect);
 }
 
-/* The menu art and its hover rectangles were laid out for 800x600; on a
-   larger play area the 600-tall design is centered vertically. */
+/* The menu art and its hover rectangles were laid out for 800x600, where the
+   sign's center sat 255px down the 600-tall screen and its pipes met the top
+   edge. Holding that proportion keeps the sign middle-top at any height; the
+   pipes are extended up to the edge when drawn. */
 static void LayoutMenu(void)
 {
 	short cx = gSAT.offSizeH / 2;
-	short top = (gSAT.offSizeV - 600) / 2;
+	short top = (short)(gSAT.offSizeV * 255 / 600) - 255;
+
+	if (top < 0)
+		top = 0;
 
 	SetRect(&menuRect, cx - 247, top, cx + 246, top + 391);
 	SetRect(&menuNewGameRect, menuRect.left + 42, top + 164,

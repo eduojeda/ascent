@@ -125,6 +125,7 @@ void SATSetGammaLevel(int percent);          /* 0 = black, 100 = full */
 Boolean SATPumpEvents(void);                 /* returns false on quit request */
 void SATSetPlayAreaSize(int w, int h);       /* clamped; safe between games */
 void SATDrawBackground(PicHandle pic, const Rect *area);
+void SATDrawPictureExtendedToTop(PicHandle pic, const Rect *dst);
 extern Boolean gSATQuitRequested;
 
 #ifdef __cplusplus

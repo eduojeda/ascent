@@ -709,6 +709,22 @@ void DrawPicture(PicHandle pic, const Rect *dst)
 	                      SDL_SCALEMODE_LINEAR);
 }
 
+/* Draws a picture and continues its top row upward to the top of the port.
+   The menu art's two pipes run off its top edge and met the screen edge at
+   the 2002 size; its topmost rows are pure vertical pipe, so repeating that
+   row reconnects them at any play-area height. */
+void SATDrawPictureExtendedToTop(PicHandle pic, const Rect *dst)
+{
+	SDL_Rect src = { 0, 0, pic->s->w, 1 };
+	SDL_SetSurfaceBlendMode(pic->s, SDL_BLENDMODE_BLEND);
+	for (int y = 0; y < dst->top; y++) {
+		SDL_Rect d = { dst->left, y, dst->right - dst->left, 1 };
+		SDL_BlitSurfaceScaled(pic->s, &src, g_curPort->portBits.s, &d,
+		                      SDL_SCALEMODE_NEAREST);
+	}
+	DrawPicture(pic, dst);
+}
+
 /* Fills an area with the starfield background. At the original size the
    picture is used untouched. On a larger play area, tiling shows seams and
    stretching blurs the stars, so: the picture is scaled uniformly to cover
