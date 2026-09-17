@@ -9,3 +9,5 @@ Ascent - SheepShaver/
 __pycache__/
 *.o.tmp
 third_party/
+.claude/worktrees/
+.DS_Store

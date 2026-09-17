@@ -2,7 +2,7 @@
 """Builds the game's runtime assets from the surviving Development Stuff art.
 
 Inputs:  build/art-png/  (PICTs pre-converted by tools/convert-art.sh)
-         Development Stuff/  (PICTs netpbm can't read are decoded here)
+         original/Development Stuff/  (PICTs netpbm can't read are decoded here)
 Outputs: assets/sprites/<resource id>.png
          assets/pics/<resource id>.png
 
@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ART = os.path.join(ROOT, "build", "art-png")
-DEV = os.path.join(ROOT, "Development Stuff")
+DEV = os.path.join(ROOT, "original", "Development Stuff")
 SPRITES = os.path.join(ROOT, "assets", "sprites")
 PICS = os.path.join(ROOT, "assets", "pics")
 IMPACT = "/System/Library/Fonts/Supplemental/Impact.ttf"

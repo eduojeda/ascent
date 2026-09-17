@@ -2,7 +2,7 @@
 """Builds higher-resolution copies of the sprites into assets/sprites/hires/.
 
 The 2002 sprites are 3D renders that were shrunk to 45x34 and friends to fit
-Classic Mac. The renders survive in Development Stuff/ at around five times
+Classic Mac. The renders survive in original/Development Stuff/ at around five times
 that, so on a modern display the engine can reduce one of those to the size
 it needs instead of enlarging the small one.
 

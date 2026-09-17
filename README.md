@@ -85,7 +85,7 @@ logic — intact and replaces the platform underneath:
 - `assets/sprites/hires/` holds higher-resolution copies of the sprites
   the engine reduces to whatever size the zoom asks for, instead of
   enlarging the 45x34 originals. They come from the 3D renders in
-  `Development Stuff/`, which survive at around five times the sprite
+  `original/Development Stuff/`, which survive at around five times the sprite
   size — the 2002 build shrank them to fit Classic Mac.
   `tools/build_hires_sprites.py` fits each render onto the shipped
   sprite's silhouette so nothing shifts against its collision rectangle,
@@ -95,14 +95,14 @@ logic — intact and replaces the platform underneath:
   debris renders are not the art that shipped, so those keep their 2002
   sprites.
 - The assets are the ORIGINALS, recovered from the 2002 release app's
-  resource fork. The fork survived inside `Juego PPC.zip` — a Finder-made
+  resource fork. The fork survived inside `original/Juego PPC.zip` — a Finder-made
   backup of the old dev machine whose `__MACOSX` AppleDouble entries
   carried it through years on a Windows disk. `tools/extract_rsrc.py`
   parses the fork (all 43 `snd ` sounds to WAV, 140 `cicn` sprite faces
   with their masks, all `PICT`s); `tools/install_original_assets.py`
   installs them into `assets/`.
 - Before the archive turned up, the assets were reconstructed from the
-  art sources in `Development Stuff/` (`tools/build_assets.py`) with
+  art sources in `original/Development Stuff/` (`tools/build_assets.py`) with
   synthesized placeholder sounds (`tools/gen-sounds.sh`); those tools
   remain as the fallback path — `make assets` runs the full chain,
   originals winning.
@@ -111,5 +111,8 @@ One genuine 2002 bug fixed: `SetupBall` dereferenced `g.ball` before it
 was assigned — Classic Mac OS silently allowed the nil write; modern
 macOS does not.
 
-The untouched originals (source, CodeWarrior project, the PowerPC
-binary) live at the repository root and in `Ascent v1.0.1*/`.
+The untouched originals live in `original/`: the 2002 source in
+`original/code/`, the art in `original/Development Stuff/`, the release
+build and its read-me in `original/Ascent v1.0.1/`, and the archive that
+carried the resource fork, `original/Juego PPC.zip` (which also holds the
+CodeWarrior project and the SAT library the game was built with).
