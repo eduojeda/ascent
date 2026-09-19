@@ -18,6 +18,7 @@ ascent: $(OBJS)
 # Ascent.app is the build to hand to other people: universal, self-contained,
 # and back-deployed. Homebrew's SDL3 is arm64-only and stamped with the build
 # machine's macOS version, which makes an app that other Macs refuse to open.
+VERSION    = 2.0.0
 FRAMEWORKS = third_party/frameworks
 MIN_MACOS  = 11.0
 ARCHS      = -arch arm64 -arch x86_64
@@ -26,9 +27,9 @@ DIST_FLAGS = -std=c11 -O2 $(WARN) $(ARCHS) -mmacosx-version-min=$(MIN_MACOS) \
 DIST_LIBS  = -framework SDL3 -framework SDL3_image -lm \
              -Wl,-rpath,@executable_path/../Frameworks
 
-.PHONY: clean assets bundle frameworks
+.PHONY: clean assets bundle frameworks dist
 clean:
-	rm -f $(OBJS) ascent
+	rm -f $(OBJS) ascent Ascent-*.zip
 	rm -rf Ascent.app
 
 frameworks:
@@ -64,8 +65,8 @@ bundle: frameworks
 	  '<key>CFBundleExecutable</key><string>Ascent</string>' \
 	  '<key>CFBundleIdentifier</key><string>com.eduardoojeda.ascent</string>' \
 	  '<key>CFBundleName</key><string>Ascent</string>' \
-	  '<key>CFBundleVersion</key><string>1.0.1</string>' \
-	  '<key>CFBundleShortVersionString</key><string>1.0.1</string>' \
+	  '<key>CFBundleVersion</key><string>$(VERSION)</string>' \
+	  '<key>CFBundleShortVersionString</key><string>$(VERSION)</string>' \
 	  '<key>CFBundlePackageType</key><string>APPL</string>' \
 	  '<key>CFBundleIconFile</key><string>Ascent</string>' \
 	  '<key>LSMinimumSystemVersion</key><string>$(MIN_MACOS)</string>' \
@@ -74,3 +75,9 @@ bundle: frameworks
 	codesign --force --sign - $(APP)/Frameworks/SDL3.framework
 	codesign --force --sign - $(APP)/Frameworks/SDL3_image.framework
 	codesign --force --sign - Ascent.app
+
+# The zip to attach to a GitHub release. ditto keeps the bundle's symlinks
+# and signature intact where a plain zip would not.
+dist: bundle
+	rm -f Ascent-$(VERSION)-macOS.zip
+	ditto -c -k --keepParent Ascent.app Ascent-$(VERSION)-macOS.zip
