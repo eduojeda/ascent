@@ -362,20 +362,30 @@ void SATGetPlayAreaSize(int *w, int *h)
 	*h = g_gameH;
 }
 
-/* Testing hooks: ASCENT_SHOTDIR dumps the composite every 30 presents;
-   ASCENT_AUTOQUIT=<n> exits after n presents. */
+/* Testing hooks. ASCENT_SHOTDIR dumps the composite every ASCENT_SHOTEVERY
+   presents (default 30) once ASCENT_SHOTFROM presents have passed;
+   ASCENT_AUTOQUIT=<n> exits after n presents. ASCENT_SCRIPT (see GetKeys)
+   plays back keyboard input against the same count. */
+static long g_presents;
+
 static void TestHooks(void)
 {
-	static long presents;
-	presents++;
+	g_presents++;
 	const char *dir = SDL_getenv("ASCENT_SHOTDIR");
-	if (dir && presents % 30 == 0) {
-		char path[1200];
-		snprintf(path, sizeof path, "%s/frame-%05ld.png", dir, presents);
-		IMG_SavePNG(g_screen, path);
+	if (dir) {
+		const char *every = SDL_getenv("ASCENT_SHOTEVERY");
+		const char *from = SDL_getenv("ASCENT_SHOTFROM");
+		long n = every ? atol(every) : 30;
+		if (n < 1)
+			n = 1;
+		if (g_presents >= (from ? atol(from) : 0) && g_presents % n == 0) {
+			char path[1200];
+			snprintf(path, sizeof path, "%s/frame-%05ld.png", dir, g_presents);
+			IMG_SavePNG(g_screen, path);
+		}
 	}
 	const char *quit = SDL_getenv("ASCENT_AUTOQUIT");
-	if (quit && presents >= atol(quit))
+	if (quit && g_presents >= atol(quit))
 		exit(0);
 }
 
@@ -1053,16 +1063,61 @@ static const KeyPair kKeyTable[] = {
 	{ SDL_SCANCODE_DOWN, 125 }, { SDL_SCANCODE_UP, 126 },
 };
 
+/* Scripted input for unattended recordings: ASCENT_SCRIPT names a file of
+   lines "<from> <to> KEY [KEY...]", holding those SDL scancode names while
+   the present count is in [from, to). Lines starting with # are ignored. */
+typedef struct { long from, to; SDL_Scancode sc; } ScriptKey;
+static ScriptKey g_script[512];
+static int g_scriptCount = -1; /* -1 until the file has been read */
+
+static void LoadScript(void)
+{
+	g_scriptCount = 0;
+	const char *path = SDL_getenv("ASCENT_SCRIPT");
+	FILE *f = path ? fopen(path, "r") : NULL;
+	if (!f)
+		return;
+	char line[256];
+	while (fgets(line, sizeof line, f)) {
+		long from, to;
+		int used;
+		if (line[0] == '#' || sscanf(line, "%ld %ld %n", &from, &to, &used) != 2)
+			continue;
+		char *save = line + used;
+		for (char *tok = strtok(save, " \t\r\n"); tok;
+		     tok = strtok(NULL, " \t\r\n")) {
+			SDL_Scancode sc = SDL_GetScancodeFromName(tok);
+			if (sc == SDL_SCANCODE_UNKNOWN)
+				SDL_Log("ASCENT_SCRIPT: unknown key '%s'", tok);
+			else if (g_scriptCount < (int)SDL_arraysize(g_script))
+				g_script[g_scriptCount++] = (ScriptKey){ from, to, sc };
+		}
+	}
+	fclose(f);
+}
+
+static void SetMacKey(KeyMap keys, SDL_Scancode sc)
+{
+	for (size_t i = 0; i < SDL_arraysize(kKeyTable); i++)
+		if (kKeyTable[i].sc == sc) {
+			unsigned char k = kKeyTable[i].mac;
+			keys[k >> 3] |= (unsigned char)(1u << (k & 7));
+		}
+}
+
 void GetKeys(KeyMap keys)
 {
 	const bool *state = SDL_GetKeyboardState(NULL);
 	memset(keys, 0, 16);
-	for (size_t i = 0; i < SDL_arraysize(kKeyTable); i++) {
-		if (state[kKeyTable[i].sc]) {
-			unsigned char k = kKeyTable[i].mac;
-			keys[k >> 3] |= (unsigned char)(1u << (k & 7));
-		}
-	}
+	for (size_t i = 0; i < SDL_arraysize(kKeyTable); i++)
+		if (state[kKeyTable[i].sc])
+			SetMacKey(keys, kKeyTable[i].sc);
+
+	if (g_scriptCount < 0)
+		LoadScript();
+	for (int i = 0; i < g_scriptCount; i++)
+		if (g_presents >= g_script[i].from && g_presents < g_script[i].to)
+			SetMacKey(keys, g_script[i].sc);
 }
 
 Boolean BitTst(const void *bytePtr, long bitNum)

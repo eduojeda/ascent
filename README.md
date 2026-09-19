@@ -7,7 +7,7 @@ It was built using [Ingemar Ragnemalm's Sprite Animation Toolkit](https://www.ly
 
 Over the years I looked into compiling the game for modern macOS purely for nostalgia value, but with SAT gone it would've required a pretty big rewrite I wasn't willing to undertake. By 2026 LLMs got good enough to finally make this feasible. Claude had little trouble reimplementing a subset of SAT using SDL and adjusting a few other bits here and there to make it run again on modern hardware. It's been quite a trip down memory lane.
 
-![gameplay](docs/screenshot.png)
+![gameplay](docs/gameplay.gif)
 
 ## Build and run
 
