@@ -41,6 +41,7 @@ Settings and key bindings persist in
 brew install sdl3 sdl3_image pkgconf
 make            # builds ./ascent (run it from the repo root)
 make bundle     # builds Ascent.app
+make dist       # zips it as Ascent-<version>-macOS.zip for a release
 ```
 
 `make` is the quick local build: host architecture, linked against
@@ -56,9 +57,13 @@ machine's macOS version and links Homebrew paths, so other Macs refuse it
 with "You can't use this version of the application with this version of
 macOS".
 
-The app is signed ad-hoc, not notarized. Someone who downloads it will
-have to right-click it and choose Open the first time (or run
-`xattr -dr com.apple.quarantine Ascent.app`).
+The app is signed ad-hoc, not notarized, so macOS refuses it the first
+time. On macOS 15 and later, open it once (it gets blocked), then go to
+System Settings → Privacy & Security and click Open Anyway; on macOS
+11–14, Control-click the app and choose Open. Either way,
+`xattr -dr com.apple.quarantine Ascent.app` from a terminal also works.
+Notarizing would remove the step, but needs a paid Apple developer
+account.
 
 The prebuilt `assets/` are checked in. To rebuild them from the original
 art (`brew install netpbm`, plus a Python venv in `tools/.venv` with
