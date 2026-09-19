@@ -74,7 +74,7 @@ SpritePtr		debris;
 				debris->speed.h = (rightShip->speed.h + (SATRand(5)-SATRand(5)/10.0))/kTiempo;
 				debris->speed.v = (rightShip->speed.v + (SATRand(3)-SATRand(3)/10.0))/kTiempo;
 				
-				if(g.ball->who == rightShip)
+				if(g.ball != nil && g.ball->who == rightShip)
 					ReleaseBall(g.ball->who);
 				rightShip->speed.h = rightShip->speed.h/kTiempo;
 				rightShip->speed.v = rightShip->speed.v/kTiempo;							
@@ -121,7 +121,7 @@ SpritePtr		debris;
 			if (BitTst(&theKeys, RSKeys.shoot) && spaceIsUp)
 			{
 				spaceIsUp = false;
-				if((g.ball->mode == kBallCaughtMode) && (g.ball->who == rightShip))
+				if(g.ball != nil && (g.ball->mode == kBallCaughtMode) && (g.ball->who == rightShip))
 				{
 					SATSoundPlay(g.releaseSnd, 1, true);
 					ReleaseBall(rightShip);	
@@ -327,7 +327,7 @@ pascal void HitTaskShipRight(SpritePtr rightShip, SpritePtr him)
 		rightShip->mass = kShipMass + kBallMass;
 		rightShip->viscosity = kShipViscosity + kBallViscosity;
 	}	
-	if((him->kind == kBulletKind || him->kind == kRocketKind || him->kind == kMissileKind) && g.ball->mode == kBallCaughtMode)
+	if((him->kind == kBulletKind || him->kind == kRocketKind || him->kind == kMissileKind) && g.ball != nil && g.ball->mode == kBallCaughtMode)
 	{
 		ReleaseBall(rightShip);
 	}	
@@ -349,7 +349,7 @@ void RightShipBoundsCheck(SpritePtr ship)
 		
 		if((ship->position.h <= kLimits) && (g.bottomLeftLG->mode == kLimitGAliveMode) && (ship->speed.h < 0))
 		{
-			if(g.ball->who == ship && g.ball->mode == kBallCaughtMode)
+			if(g.ball != nil && g.ball->who == ship && g.ball->mode == kBallCaughtMode)
 				ReleaseBall(ship);							
 				
 			ship->shields -= (kLimitDamage + (SATRand(5)-SATRand(5)));

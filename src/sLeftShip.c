@@ -76,7 +76,7 @@ SpritePtr		debris;
 				debris->speed.h = (leftShip->speed.h + (SATRand(5)-SATRand(5)/10.0))/kTiempo;
 				debris->speed.v = (leftShip->speed.v + (SATRand(3)-SATRand(3)/10.0))/kTiempo;
 				
-				if(g.ball->who == leftShip)
+				if(g.ball != nil && g.ball->who == leftShip)
 					ReleaseBall(g.ball->who);
 				leftShip->speed.h = leftShip->speed.h/kTiempo;		//Adjust the speeds to the Ballistic Model's timescale
 				leftShip->speed.v = leftShip->speed.v/kTiempo;							
@@ -127,7 +127,7 @@ SpritePtr		debris;
 			if ((BitTst(&theKeys, LSKeys.shoot)) && controlIsUp)		//Tests if the Control Key is pressed.
 			{															//the controlIsUp flag is there to force the user to release the key and press again to trigger the control again
 				controlIsUp = false;
-				if((g.ball->mode == kBallCaughtMode) && (g.ball->who == leftShip))	//the ball is being carried by this ship
+				if(g.ball != nil && (g.ball->mode == kBallCaughtMode) && (g.ball->who == leftShip))	//the ball is being carried by this ship
 				{
 					SATSoundPlay(g.releaseSnd, 1, true);				//Play the sound
 					ReleaseBall(leftShip);								//Let go the ball
@@ -342,7 +342,7 @@ pascal void HitTaskShipLeft(SpritePtr leftShip, SpritePtr him)
 		leftShip->mass = kShipMass + kBallMass;		//add the ball's mass and viscosity factor to the ship's mass and viscosity factor
 		leftShip->viscosity = kShipViscosity + kBallViscosity;
 	}	
-	if((him->kind == kBulletKind || him->kind == kRocketKind || him->kind == kMissileKind) && g.ball->mode == kBallCaughtMode)
+	if((him->kind == kBulletKind || him->kind == kRocketKind || him->kind == kMissileKind) && g.ball != nil && g.ball->mode == kBallCaughtMode)
 	{
 		ReleaseBall(leftShip);						//let the ball go
 	}	
@@ -466,7 +466,7 @@ void LeftShipBoundsCheck(SpritePtr ship)
 		
 		if((ship->position.h >= gSAT.offSizeH - ship->hotRect.right - kLimits) && (g.bottomRightLG->mode == kLimitGAliveMode) && (ship->speed.h > 0)) //Can't get past the green limit unless its generator is destroyed
 		{
-			if(g.ball->who == ship && g.ball->mode == kBallCaughtMode)
+			if(g.ball != nil && g.ball->who == ship && g.ball->mode == kBallCaughtMode)
 				ReleaseBall(ship);										//let the ball go
 			
 			ship->shields -= (kLimitDamage + (SATRand(5)-SATRand(5)));	//Make a somewhat random amount of damage

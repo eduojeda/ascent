@@ -110,9 +110,11 @@ logic — intact and replaces the platform underneath:
   remain as the fallback path — `make assets` runs the full chain,
   originals winning.
 
-One genuine 2002 bug fixed: `SetupBall` dereferenced `g.ball` before it
-was assigned — Classic Mac OS silently allowed the nil write; modern
-macOS does not.
+Two genuine 2002 bugs fixed, both nil dereferences that Classic Mac OS
+silently allowed and modern macOS does not: `SetupBall` wrote through
+`g.ball` before it was assigned, and the ships read `g.ball` when firing
+or dying although the ball only exists once the spawner has dropped it —
+a shot during the countdown crashed the game.
 
 The untouched originals live in `original/`: the 2002 source in
 `original/code/`, the art in `original/Development Stuff/`, the release
