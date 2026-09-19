@@ -9,6 +9,32 @@ Over the years I looked into compiling the game for modern macOS purely for nost
 
 ![gameplay](docs/gameplay.gif)
 
+## Controls
+
+|                    | Left player (blue) | Right player (red) |
+|--------------------|--------------------|--------------------|
+| Move               | W A S D            | Arrow keys         |
+| Shoot / release    | F                  | ,                  |
+| Turn around        | G                  | .                  |
+| Powerup            | H                  | /                  |
+
+`P` pauses, `Esc` quits the match, `Cmd+Return` toggles fullscreen.
+Keys are rebindable in Settings.
+
+The play area defaults to the largest preset that fits your display
+(800x600 minimum, the 2002 size) and can be changed in Settings.
+
+Zoom (also in Settings, 130% by default) magnifies everything, since the
+2002 sprites are a fixed number of pixels and look small on a big
+screen. It shrinks the game's coordinate space rather than the picture:
+the arena holds proportionally less space as you zoom in, but the frame
+is still drawn at the full window resolution. It can only go as far as
+leaves an 800x600 arena, which is what the HUD and menu layout need, so a
+small window allows less zoom.
+
+Settings and key bindings persist in
+`~/Library/Application Support/Ascent/prefs.txt`.
+
 ## Build and run
 
 ```sh
@@ -37,32 +63,6 @@ have to right-click it and choose Open the first time (or run
 The prebuilt `assets/` are checked in. To rebuild them from the original
 art (`brew install netpbm`, plus a Python venv in `tools/.venv` with
 pillow): `make assets`.
-
-## Controls
-
-|                    | Left player (blue) | Right player (red) |
-|--------------------|--------------------|--------------------|
-| Move               | W A S D            | Arrow keys         |
-| Shoot / release    | F                  | ,                  |
-| Turn around        | G                  | .                  |
-| Powerup            | H                  | /                  |
-
-`P` pauses, `Esc` quits the match, `Cmd+Return` toggles fullscreen.
-Keys are rebindable in Settings.
-
-The play area defaults to the largest preset that fits your display
-(800x600 minimum, the 2002 size) and can be changed in Settings.
-
-Zoom (also in Settings, 130% by default) magnifies everything, since the
-2002 sprites are a fixed number of pixels and look small on a big
-screen. It shrinks the game's coordinate space rather than the picture:
-the arena holds proportionally less space as you zoom in, but the frame
-is still drawn at the full window resolution. It can only go as far as
-leaves an 800x600 arena, which is what the HUD and menu layout need, so a
-small window allows less zoom.
-
-Settings and key bindings persist in
-`~/Library/Application Support/Ascent/prefs.txt`.
 
 ## About the port
 
