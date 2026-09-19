@@ -116,3 +116,23 @@ The untouched originals live in `original/`: the 2002 source in
 build and its read-me in `original/Ascent v1.0.1/`, and the archive that
 carried the resource fork, `original/Juego PPC.zip` (which also holds the
 CodeWarrior project and the SAT library the game was built with).
+
+## License
+
+MIT — see `LICENSE`. That covers the port, the 2002 source, and all the
+art and sound, both the runtime `assets/` and the originals under
+`original/`.
+
+Two things in the repository are not mine and are not under that license:
+
+- `original/code/mySAT.h`, and `SAT(PPC).lib`, `SATAdd-ons(68k).lib`,
+  `SAT.h` and `SATAddOnLib.h` inside `original/Juego PPC.zip`, are
+  Ingemar Ragnemalm's Sprite Animation Toolkit, kept as part of the
+  historical record on his terms. The port does not use them:
+  `src/compat/` reimplements the slice of the SAT API the game calls, and
+  `src/mySAT.h` declares only that slice.
+- The CodeWarrior project files in the archive are Metrowerks-generated
+  project metadata.
+
+`make bundle` downloads SDL3 and SDL3_image (zlib license) and ships them
+inside `Ascent.app`; they are not part of this repository.
