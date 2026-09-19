@@ -464,6 +464,7 @@ static void InitNewGame(void)
 
 	SATCustomInit(128, 128, nil, nil, nil, true, true, true, false, true);
 	SATConfigure(false, kLayerSort, kForwardCollision, 32);
+	g.ball = nil; /* SATCustomInit freed last game's; the spawner makes a new one */
 
 	/*Misc Calls*/
 	g.leftShipReincarnating = true;
