@@ -1,5 +1,9 @@
 # Ascent
 
+[![Latest release](https://img.shields.io/github/v/release/eduojeda/ascent)](https://github.com/eduojeda/ascent/releases/latest)
+
+**[Download Ascent for macOS](https://github.com/eduojeda/ascent/releases/latest)** — Apple silicon and Intel, macOS 11 or later, nothing else to install.
+
 A two-player arena game originally written in 2002 for Classic Mac OS when I was a teenager. Catch the ball, throw it into your opponent's goal,
 and use missiles, rockets, and powerups to make their day worse. This is the first sizable piece of software I ever wrote! Understandably the code is generally horrible, but I'm low key proud of a couple of things: I took the physics engine quite far, including friction and viscosity. And I somehow structured things in a sort of object oriented way without knowing OOP was even a thing.
 
@@ -8,6 +12,21 @@ It was built using [Ingemar Ragnemalm's Sprite Animation Toolkit](https://www.ly
 Over the years I looked into compiling the game for modern macOS purely for nostalgia value, but with SAT gone it would've required a pretty big rewrite I wasn't willing to undertake. By 2026 LLMs got good enough to finally make this feasible. Claude had little trouble reimplementing a subset of SAT using SDL and adjusting a few other bits here and there to make it run again on modern hardware. It's been quite a trip down memory lane.
 
 ![gameplay](docs/gameplay.gif)
+
+## Download
+
+Grab the zip from the **[latest release](https://github.com/eduojeda/ascent/releases/latest)**, unzip it, and put `Ascent.app` wherever you like. It is universal (Apple silicon and Intel), runs on macOS 11 or later, and carries everything it needs.
+
+The app is signed but not notarized with Apple, so macOS refuses it the
+first time:
+
+- **macOS 15 and later:** open it once (it gets blocked), then go to
+  System Settings → Privacy & Security and click **Open Anyway**.
+- **macOS 11–14:** Control-click the app and choose **Open**.
+- Or, from a terminal: `xattr -dr com.apple.quarantine Ascent.app`
+
+Notarizing would remove this step, but needs a paid Apple developer
+account.
 
 ## Controls
 
@@ -55,15 +74,8 @@ run downloads the official SDL3 frameworks into `third_party/`
 own. Don't hand out a `make`-built binary — it is stamped with the build
 machine's macOS version and links Homebrew paths, so other Macs refuse it
 with "You can't use this version of the application with this version of
-macOS".
-
-The app is signed ad-hoc, not notarized, so macOS refuses it the first
-time. On macOS 15 and later, open it once (it gets blocked), then go to
-System Settings → Privacy & Security and click Open Anyway; on macOS
-11–14, Control-click the app and choose Open. Either way,
-`xattr -dr com.apple.quarantine Ascent.app` from a terminal also works.
-Notarizing would remove the step, but needs a paid Apple developer
-account.
+macOS". The app is signed ad-hoc, not notarized — see Download above
+for what that means on first launch.
 
 The prebuilt `assets/` are checked in. To rebuild them from the original
 art (`brew install netpbm`, plus a Python venv in `tools/.venv` with
