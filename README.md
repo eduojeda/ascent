@@ -1,7 +1,7 @@
 # Ascent
 
 A two-player arena game originally written in 2002 for Classic Mac OS when I was a teenager. Catch the ball, throw it into your opponent's goal,
-and use missiles, rockets, and powerups to make their day worse.
+and use missiles, rockets, and powerups to make their day worse. This is the first sizable piece of software I ever wrote! Understandably the code is generally horrible, but I'm low key proud of a couple of things: I took the physics engine quite far, including friction and viscosity. And I somehow structured things in a sort of object oriented way without knowing OOP was even a thing.
 
 It was built using [Ingemar Ragnemalm's Sprite Animation Toolkit](https://www.lysator.liu.se/~ingemar/sat/sat-downloads.html), a library underpinning many awesome games of the classic Mac shareware era (including Escape Velocity, one of my favorite games ever). It stopped receiving updates in 2009 and more or less fell off the face of the internet after that.
 
