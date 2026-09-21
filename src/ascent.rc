@@ -1,0 +1,36 @@
+/* Windows resources for Ascent.exe: the icon Explorer and the taskbar show,
+   and the version block under Properties > Details. Compiled by windres from
+   the Makefile, which passes VERSION (2.0.0) and VERSION_NUM (2,0,0,0). */
+
+#include <windows.h>
+
+/* stringized here because quotes in windres -D values do not survive */
+#define STR_(x) #x
+#define STR(x) STR_(x)
+#define VERSION_STR STR(VERSION)
+
+1 ICON "assets/Ascent.ico"
+
+1 VERSIONINFO
+FILEVERSION     VERSION_NUM
+PRODUCTVERSION  VERSION_NUM
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904B0"
+		BEGIN
+			VALUE "FileDescription", "Ascent"
+			VALUE "FileVersion", VERSION_STR
+			VALUE "ProductName", "Ascent"
+			VALUE "ProductVersion", VERSION_STR
+			VALUE "OriginalFilename", "Ascent.exe"
+			VALUE "LegalCopyright", "MIT License"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x409, 1200
+	END
+END
