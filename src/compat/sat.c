@@ -430,6 +430,14 @@ void SATSetGammaLevel(int percent)
 	g_gamma = percent;
 }
 
+/* Cmd+Return on macOS; Alt+Enter elsewhere, where the GUI key is the Windows
+   or Super key and opens the system menu instead */
+#ifdef SDL_PLATFORM_APPLE
+#define FULLSCREEN_MOD SDL_KMOD_GUI
+#else
+#define FULLSCREEN_MOD SDL_KMOD_ALT
+#endif
+
 Boolean SATPumpEvents(void)
 {
 	SDL_Event e;
@@ -437,7 +445,7 @@ Boolean SATPumpEvents(void)
 		if (e.type == SDL_EVENT_QUIT)
 			gSATQuitRequested = true;
 		if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_RETURN &&
-		    (e.key.mod & SDL_KMOD_GUI))
+		    (e.key.mod & FULLSCREEN_MOD))
 			SDL_SetWindowFullscreen(g_window,
 			                        !(SDL_GetWindowFlags(g_window) &
 			                          SDL_WINDOW_FULLSCREEN));
