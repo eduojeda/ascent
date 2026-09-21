@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Builds assets/Ascent.icns from the ORIGINAL 2002 app icon family
-(recovered/resources: ICN#/icl8 32x32 and ics#/ics8 16x16, all id 128).
+"""Builds assets/Ascent.icns and assets/Ascent.ico from the ORIGINAL 2002
+app icon family (recovered/resources: ICN#/icl8 32x32 and ics#/ics8 16x16,
+all id 128).
 
 The 8-bit members index the classic Mac OS system palette; the 1-bit
 members carry the transparency masks. Larger sizes are nearest-neighbor
-upscales, keeping the chunky original look in the Dock.
+upscales, keeping the chunky original look in the Dock and the taskbar.
 """
 
 import os
@@ -74,6 +75,16 @@ def main():
     out = os.path.join(ROOT, "assets", "Ascent.icns")
     subprocess.run(["iconutil", "-c", "icns", "-o", out, iconset], check=True)
     print("wrote", out)
+
+    # Pillow only writes sizes up to the base image's, so the 256 goes first
+    ico = os.path.join(ROOT, "assets", "Ascent.ico")
+    sizes = [16, 32, 48, 64, 128, 256]
+    frames = {16: icon16, 32: icon32}
+    for s in sizes[2:]:
+        frames[s] = icon32.resize((s, s), Image.NEAREST)
+    frames[256].save(ico, format="ICO", sizes=[(s, s) for s in sizes],
+                     append_images=[frames[s] for s in sizes[:-1]])
+    print("wrote", ico)
 
 
 if __name__ == "__main__":

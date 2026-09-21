@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/eduojeda/ascent)](https://github.com/eduojeda/ascent/releases/latest)
 
-**[Download Ascent for macOS](https://github.com/eduojeda/ascent/releases/latest)** — Apple silicon and Intel, macOS 11 or later, nothing else to install.
+**[Download Ascent](https://github.com/eduojeda/ascent/releases/latest)** for macOS (Apple silicon and Intel, macOS 11 or later) or Windows (64-bit, Windows 10 or later). Nothing else to install.
 
 A two-player arena game originally written in 2002 for Classic Mac OS when I was a teenager. Catch the ball, throw it into your opponent's goal,
 and use missiles, rockets, and powerups to make their day worse. This is the first sizable piece of software I ever wrote! Understandably the code is generally horrible, but I'm low key proud of a couple of things: I took the physics engine quite far, including friction and viscosity. And I somehow structured things in a sort of object oriented way without knowing OOP was even a thing.
@@ -15,7 +15,16 @@ Over the years I looked into compiling the game for modern macOS purely for nost
 
 ## Download
 
-Grab the zip from the **[latest release](https://github.com/eduojeda/ascent/releases/latest)**, unzip it, and put `Ascent.app` wherever you like. It is universal (Apple silicon and Intel), runs on macOS 11 or later, and carries everything it needs.
+Grab the zip for your system from the **[latest release](https://github.com/eduojeda/ascent/releases/latest)**.
+
+**Windows:** unzip and run `Ascent.exe` from inside the `Ascent` folder. The
+two SDL DLLs and the `assets` folder must stay next to it. The exe is not
+code-signed, so SmartScreen may warn the first time: click **More info**,
+then **Run anyway**.
+
+**macOS:** unzip and put `Ascent.app` wherever you like. It is universal
+(Apple silicon and Intel), runs on macOS 11 or later, and carries everything
+it needs.
 
 The app is signed but not notarized with Apple, so macOS refuses it the
 first time:
@@ -37,8 +46,8 @@ account.
 | Turn around        | G                  | .                  |
 | Powerup            | H                  | /                  |
 
-`P` pauses, `Esc` quits the match, `Cmd+Return` toggles fullscreen.
-Keys are rebindable in Settings.
+`P` pauses, `Esc` quits the match, `Cmd+Return` (macOS) or `Alt+Enter`
+(Windows) toggles fullscreen. Keys are rebindable in Settings.
 
 The play area defaults to the largest preset that fits your display
 (800x600 minimum, the 2002 size) and can be changed in Settings.
@@ -52,15 +61,18 @@ leaves an 800x600 arena, which is what the HUD and menu layout need, so a
 small window allows less zoom.
 
 Settings and key bindings persist in
-`~/Library/Application Support/Ascent/prefs.txt`.
+`~/Library/Application Support/Ascent/prefs.txt` on macOS and
+`%APPDATA%\Ascent\prefs.txt` on Windows.
 
 ## Build and run
 
 ```sh
 brew install sdl3 sdl3_image pkgconf
-make            # builds ./ascent (run it from the repo root)
-make bundle     # builds Ascent.app
-make dist       # zips it as Ascent-<version>-macOS.zip for a release
+make              # builds ./ascent (run it from the repo root)
+make bundle       # builds Ascent.app
+make dist         # zips it as Ascent-<version>-macOS.zip for a release
+make windows      # cross-compiles build/windows/Ascent/ (Ascent.exe, DLLs, assets)
+make dist-windows # zips it as Ascent-<version>-Windows.zip for a release
 ```
 
 `make` is the quick local build: host architecture, linked against
@@ -76,6 +88,14 @@ machine's macOS version and links Homebrew paths, so other Macs refuse it
 with "You can't use this version of the application with this version of
 macOS". The app is signed ad-hoc, not notarized — see Download above
 for what that means on first launch.
+
+`make windows` cross-compiles the Windows build from macOS with
+`brew install mingw-w64`. The first run downloads SDL's official MinGW
+packages into `third_party/` (`make windows-sdl` fetches them on their
+own). The result is a folder holding `Ascent.exe`, `SDL3.dll`,
+`SDL3_image.dll` and `assets/`, which is what the zip contains; the exe
+carries the 2002 icon and a version block from `src/ascent.rc`. It is
+64-bit only and not code-signed.
 
 The prebuilt `assets/` are checked in. To rebuild them from the original
 art (`brew install netpbm`, plus a Python venv in `tools/.venv` with
@@ -156,5 +176,6 @@ Two things in the repository are not mine and are not under that license:
 - The CodeWarrior project files in the archive are Metrowerks-generated
   project metadata.
 
-`make bundle` downloads SDL3 and SDL3_image (zlib license) and ships them
-inside `Ascent.app`; they are not part of this repository.
+`make bundle` and `make windows` download SDL3 and SDL3_image (zlib
+license) and ship them inside `Ascent.app` and next to `Ascent.exe`; they
+are not part of this repository.

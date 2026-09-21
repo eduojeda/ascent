@@ -27,13 +27,45 @@ DIST_FLAGS = -std=c11 -O2 $(WARN) $(ARCHS) -mmacosx-version-min=$(MIN_MACOS) \
 DIST_LIBS  = -framework SDL3 -framework SDL3_image -lm \
              -Wl,-rpath,@executable_path/../Frameworks
 
-.PHONY: clean assets bundle frameworks dist
+# Windows is cross-compiled from macOS with Homebrew's mingw-w64
+# (brew install mingw-w64) against SDL's official MinGW packages. The result
+# is a folder with Ascent.exe, the two SDL DLLs and the assets, zipped for a
+# release. -static-libgcc keeps the exe from wanting libgcc_s_seh-1.dll.
+WIN_CC      = x86_64-w64-mingw32-gcc
+WIN_WINDRES = x86_64-w64-mingw32-windres
+WIN_SDL     = third_party/windows
+WIN_DIR     = build/windows/Ascent
+WIN_FLAGS   = -std=c11 -O2 $(WARN) -I$(WIN_SDL)/include
+WIN_LIBS    = -L$(WIN_SDL)/lib -lSDL3_image -lSDL3 -lm -mwindows -static-libgcc
+comma       = ,
+WIN_RCFLAGS = -DVERSION=$(VERSION) -DVERSION_NUM=$(subst .,$(comma),$(VERSION)),0
+
+.PHONY: clean assets bundle frameworks dist windows windows-sdl dist-windows
 clean:
 	rm -f $(OBJS) ascent Ascent-*.zip
-	rm -rf Ascent.app
+	rm -rf Ascent.app build/windows
 
 frameworks:
 	./tools/fetch-frameworks.sh
+
+windows-sdl:
+	./tools/fetch-windows-sdl.sh
+
+build/windows/ascent.res: src/ascent.rc assets/Ascent.ico
+	mkdir -p build/windows
+	$(WIN_WINDRES) $(WIN_RCFLAGS) -O coff $< -o $@
+
+windows: windows-sdl build/windows/ascent.res
+	rm -rf $(WIN_DIR)
+	mkdir -p $(WIN_DIR)
+	$(WIN_CC) $(WIN_FLAGS) $(SRCS) build/windows/ascent.res \
+	  -o $(WIN_DIR)/Ascent.exe $(WIN_LIBS)
+	cp $(WIN_SDL)/bin/SDL3.dll $(WIN_SDL)/bin/SDL3_image.dll $(WIN_DIR)/
+	cp -R assets $(WIN_DIR)/assets
+
+dist-windows: windows
+	rm -f Ascent-$(VERSION)-Windows.zip
+	cd build/windows && zip -qr ../../Ascent-$(VERSION)-Windows.zip Ascent
 
 assets:
 	./tools/convert-art.sh
