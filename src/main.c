@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include "mySAT.h"
+#include <SDL3/SDL_main.h> /* supplies WinMain on Windows */
 #include "gamma.h"
 #include "ascent.h"
 
