@@ -1,9 +1,11 @@
 CC      = cc
 WARN    = -Wall -Wno-unused-variable -Wno-unused-but-set-variable
-CFLAGS  = -std=c11 -O2 $(WARN) $(shell pkg-config --cflags sdl3 sdl3-image)
-LDFLAGS = $(shell pkg-config --libs sdl3 sdl3-image) -lm
+CFLAGS  = -std=c11 -O2 $(WARN) -DASCENT_HAVE_CURL \
+          $(shell pkg-config --cflags sdl3 sdl3-image)
+LDFLAGS = $(shell pkg-config --libs sdl3 sdl3-image) -lm -lcurl
 
-GAME_SRCS = $(wildcard src/s*.c) src/misc.c src/gamma.c src/main.c
+GAME_SRCS = $(wildcard src/s*.c) src/misc.c src/gamma.c src/bot.c \
+            src/jev.c src/main.c
 COMPAT_SRCS = src/compat/sat.c src/compat/sat_sound.c
 SRCS = $(GAME_SRCS) $(COMPAT_SRCS)
 OBJS = $(SRCS:.c=.o)
@@ -12,7 +14,8 @@ OBJS = $(SRCS:.c=.o)
 ascent: $(OBJS)
 	$(CC) -o $@ $(OBJS) $(LDFLAGS)
 
-%.o: %.c src/mySAT.h src/ascent.h src/gamma.h src/compat/mac_types.h
+%.o: %.c src/mySAT.h src/ascent.h src/gamma.h src/bot.h src/jev.h \
+         src/compat/mac_types.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Ascent.app is the build to hand to other people: universal, self-contained,
@@ -23,8 +26,8 @@ FRAMEWORKS = third_party/frameworks
 MIN_MACOS  = 11.0
 ARCHS      = -arch arm64 -arch x86_64
 DIST_FLAGS = -std=c11 -O2 $(WARN) $(ARCHS) -mmacosx-version-min=$(MIN_MACOS) \
-             -F$(FRAMEWORKS)
-DIST_LIBS  = -framework SDL3 -framework SDL3_image -lm \
+             -DASCENT_HAVE_CURL -F$(FRAMEWORKS)
+DIST_LIBS  = -framework SDL3 -framework SDL3_image -lm -lcurl \
              -Wl,-rpath,@executable_path/../Frameworks
 
 # Windows is cross-compiled from macOS with Homebrew's mingw-w64

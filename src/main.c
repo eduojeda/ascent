@@ -9,6 +9,8 @@
 #include <SDL3/SDL_main.h> /* supplies WinMain on Windows */
 #include "gamma.h"
 #include "ascent.h"
+#include "bot.h"
+#include "jev.h"
 
 /* engine extras not in the SAT API */
 extern SDL_Renderer *SATGetRenderer(void);
@@ -18,7 +20,8 @@ extern const char *SATAssetPathPublic(const char *rel);
 /*This Module's Globals*/
 
 Boolean         gFastGraphics = true, gSoundOn = true, gDone = false,
-                gGamePaused = false, gCanUseGamma = true;
+                gGamePaused = false, gCanUseGamma = true,
+                gRedIsComputer = false;
 GDHandle        offScreenGD;
 PixMapHandle    limitsOffScreenBuffer = nil, theOffScreenBuffer = nil;
 Rect            bufferRect, menuNewGameRect, menuSettingsRect,
@@ -30,6 +33,7 @@ PicHandle       newGameLitPic, settingsLitPic, aboutLitPic, quitLitPic,
 
 Globals   g;
 Controls  LSKeys, RSKeys;
+ShipInput gLeftInput, gRightInput;
 
 static void Initialize(void);
 static void MainEventLoop(void);
@@ -43,12 +47,21 @@ static void SavePrefs(void);
 static void DisplaySettingsScreen(void);
 static void DisplayAboutScreen(void);
 static void SetKeys(Controls *keys, const char *playerName);
+static void ReadShipInputs(void);
 
 /*Code*/
 
+/* Silences this run only: the Sound preference is left as the player set it,
+   so a muted launch does not quietly turn their sound off for good. */
+static Boolean gMuted = false;
+
 int main(int argc, char *argv[])
 {
-	(void)argc; (void)argv;
+	for (int i = 1; i < argc; i++)
+		if (!SDL_strcmp(argv[i], "--mute") || !SDL_strcmp(argv[i], "-m"))
+			gMuted = true;
+	if (SDL_getenv("ASCENT_MUTE"))
+		gMuted = SDL_atoi(SDL_getenv("ASCENT_MUTE")) != 0;
 	Initialize();
 	MainEventLoop();
 	CleanUp();
@@ -129,6 +142,41 @@ static void PauseTextOverlay(void)
 	DrawTextCentered(VC(320), 2, grey, "P: resume    Esc: quit to menu");
 }
 
+/* One read of the keyboard a frame, shared by both ships. The 2002 ship
+   tasks used to call GetKeys themselves; the red one may now be flown by
+   bot.c instead, which never touches the keyboard. */
+static void FillFromKeys(ShipInput *in, const Controls *k, const KeyMap keys)
+{
+	in->up = BitTst(keys, k->up) != 0;
+	in->down = BitTst(keys, k->down) != 0;
+	in->left = BitTst(keys, k->left) != 0;
+	in->right = BitTst(keys, k->right) != 0;
+	in->shoot = BitTst(keys, k->shoot) != 0;
+	in->special = BitTst(keys, k->special) != 0;
+	in->rotate = BitTst(keys, k->rotate) != 0;
+}
+
+/* The setting, unless a testing hook overrides it for this run only. The
+   override deliberately does not reach the saved preference. */
+static Boolean RedIsComputer(void)
+{
+	const char *hook = SDL_getenv("ASCENT_REDBOT");
+
+	return hook ? (SDL_atoi(hook) != 0) : gRedIsComputer;
+}
+
+static void ReadShipInputs(void)
+{
+	KeyMap theKeys;
+
+	GetKeys(theKeys);
+	FillFromKeys(&gLeftInput, &LSKeys, theKeys);
+	if (RedIsComputer())
+		BotThink(&gRightInput);
+	else
+		FillFromKeys(&gRightInput, &RSKeys, theKeys);
+}
+
 static void Play(void)
 {
 	short limitsFrameCounter = 1;
@@ -141,6 +189,8 @@ static void Play(void)
 		g.numLives = 1;
 
 	InitNewGame();
+	if (RedIsComputer())
+		BotStart(true);
 	nextFrame = SDL_GetTicksNS();
 
 	do {
@@ -174,6 +224,7 @@ static void Play(void)
 		if (g.rightShipReincarnating)
 			RightShipReincarnationDelay();
 
+		ReadShipInputs();
 		SATRun2(gFastGraphics);
 
 		/*Pause Behavior*/
@@ -229,6 +280,7 @@ static void Play(void)
 		MyFadeToBlack(50);
 
 	/*Post-Game Calls*/
+	BotStop();
 	ShowCursor();
 	do {
 		SATKillSprite(gSAT.sRoot);
@@ -397,10 +449,11 @@ static void SavePrefs(void)
 	char buf[512];
 	int n = SDL_snprintf(buf, sizeof buf,
 	    "width=%d\nheight=%d\nzoom=%d\nlives=%d\npoints=%d\n"
-	    "fast=%d\nsound=%d\nadult=%d\n"
+	    "fast=%d\nsound=%d\nadult=%d\nredbot=%d\n"
 	    "lskeys=%d,%d,%d,%d,%d,%d,%d\nrskeys=%d,%d,%d,%d,%d,%d,%d\n",
 	    winW, winH, SATGetZoom(), g.numLives, g.numPoints,
 	    gFastGraphics ? 1 : 0, gSoundOn ? 1 : 0, g.dirtyWordsMode ? 1 : 0,
+	    gRedIsComputer ? 1 : 0,
 	    LSKeys.up, LSKeys.down, LSKeys.left, LSKeys.right, LSKeys.shoot,
 	    LSKeys.special, LSKeys.rotate,
 	    RSKeys.up, RSKeys.down, RSKeys.left, RSKeys.right, RSKeys.shoot,
@@ -440,6 +493,8 @@ static void LoadPrefs(void)
 			gSoundOn = v != 0;
 		} else if (SDL_sscanf(line, "adult=%d", &v) == 1) {
 			g.dirtyWordsMode = v != 0;
+		} else if (SDL_sscanf(line, "redbot=%d", &v) == 1) {
+			gRedIsComputer = v != 0;
 		} else if (SDL_sscanf(line, "lskeys=%d,%d,%d,%d,%d,%d,%d", &ls.up,
 		                      &ls.down, &ls.left, &ls.right, &ls.shoot,
 		                      &ls.special, &ls.rotate) == 7) {
@@ -642,7 +697,7 @@ static void Initialize(void)
 	/*LOAD SOUNDS*/
 	SATSoundInitChannels(6);
 	LoadSounds();
-	if (!gSoundOn)
+	if (!gSoundOn || gMuted)
 		SATSoundOff();
 
 	/*LOAD SPRITE FACES*/
@@ -680,7 +735,7 @@ typedef struct DlgItem {
 } DlgItem;
 
 enum {
-	kItOK, kItCancel, kItFastAnim, kItSound, kItAdult,
+	kItOK, kItCancel, kItFastAnim, kItSound, kItAdult, kItRedBot,
 	kItLives, kItPoints, kItWidth, kItHeight, kItZoom, kItBlueKeys,
 	kItRedKeys, kItCount
 };
@@ -691,6 +746,7 @@ static const DlgItem kSettingsItems[kItCount] = {
 	[kItFastAnim] = { 10, 18, 130, 36, "Fast Animation" },
 	[kItSound]    = { 10, 38, 76, 56, "Sound" },
 	[kItAdult]    = { 10, 58, 116, 76, "Adult Mode" },
+	[kItRedBot]   = { 140, 58, 266, 76, "Red: computer" },
 	[kItLives]    = { 190, 20, 214, 37, NULL },
 	[kItPoints]   = { 190, 40, 214, 57, NULL },
 	[kItWidth]    = { 94, 138, 136, 155, NULL },
@@ -787,7 +843,7 @@ static void DrawEditField(int i, const char *text, Boolean focused)
 }
 
 /* dialog state shared with the draw callback */
-static Boolean s_fast, s_sound, s_adult;
+static Boolean s_fast, s_sound, s_adult, s_redbot;
 static char s_lives[4], s_points[4], s_width[8], s_height[8], s_zoom[8];
 static int s_focus; /* one of the edit-field items */
 
@@ -821,6 +877,7 @@ static void DrawSettingsDialog(void)
 	DrawCheckbox(kItFastAnim, s_fast);
 	DrawCheckbox(kItSound, s_sound);
 	DrawCheckbox(kItAdult, s_adult);
+	DrawCheckbox(kItRedBot, s_redbot);
 	DrawEditField(kItLives, s_lives, s_focus == kItLives);
 	DrawEditField(kItPoints, s_points, s_focus == kItPoints);
 	DrawEditField(kItWidth, s_width, s_focus == kItWidth);
@@ -868,6 +925,7 @@ static void DisplaySettingsScreen(void)
 	s_fast = gFastGraphics;
 	s_sound = gSoundOn;
 	s_adult = g.dirtyWordsMode;
+	s_redbot = gRedIsComputer;
 	SDL_snprintf(s_lives, sizeof s_lives, "%d", g.numLives);
 	SDL_snprintf(s_points, sizeof s_points, "%d", g.numPoints);
 	int winW, winH;
@@ -935,6 +993,7 @@ static void DisplaySettingsScreen(void)
 			case kItFastAnim: s_fast = !s_fast; break;
 			case kItSound: s_sound = !s_sound; break;
 			case kItAdult: s_adult = !s_adult; break;
+			case kItRedBot: s_redbot = !s_redbot; break;
 			case kItLives: s_focus = kItLives; break;
 			case kItPoints: s_focus = kItPoints; break;
 			case kItWidth: s_focus = kItWidth; break;
@@ -956,9 +1015,10 @@ static void DisplaySettingsScreen(void)
 		if (commit) {
 			gFastGraphics = s_fast;
 			g.dirtyWordsMode = s_adult;
+			gRedIsComputer = s_redbot;
 			if (s_sound != gSoundOn) {
 				gSoundOn = s_sound;
-				if (gSoundOn)
+				if (gSoundOn && !gMuted)
 					SATSoundOn();
 				else
 					SATSoundOff();
@@ -1115,6 +1175,7 @@ static void DisplayAboutScreen(void)
 
 static void CleanUp(void)
 {
+	BotStop(); /* joins the worker when a match is quit mid-flight */
 	SavePrefs(); /* key bindings can change without passing through OK */
 	SATSoundShutup();
 	ShowCursor();
