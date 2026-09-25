@@ -234,6 +234,34 @@ static size_t OnBody(void *data, size_t size, size_t count, void *userp)
 	return n;	/* claim it all even when full, so curl does not error out */
 }
 
+static Boolean ShouldStop(void)
+{
+	Boolean stop;
+
+	SDL_LockMutex(gLock);
+	stop = !gRunning;
+	SDL_UnlockMutex(gLock);
+	return stop;
+}
+
+/* Lets a call in flight be abandoned the moment the match ends, instead of
+   holding the quit up for as long as the timeout allows. */
+static int OnProgress(void *userp, curl_off_t dt, curl_off_t dn,
+                      curl_off_t ut, curl_off_t un)
+{
+	(void)userp; (void)dt; (void)dn; (void)ut; (void)un;
+	return ShouldStop() ? 1 : 0;
+}
+
+/* A sleep that gives up as soon as the match does. */
+static void Backoff(int ms)
+{
+	int waited;
+
+	for (waited = 0; waited < ms && !ShouldStop(); waited += 50)
+		SDL_Delay(50);
+}
+
 static void NoteFailure(const char *what)
 {
 	SDL_LockMutex(gLock);
@@ -268,6 +296,8 @@ static int SDLCALL JevWorker(void *unused)
 	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 2000L);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 2500L);
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+	curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, OnProgress);
 	/* One handle for the whole match, so the connection is reused and only
 	   the first call pays for DNS and the TLS handshake. */
 
@@ -332,7 +362,7 @@ static int SDLCALL JevWorker(void *unused)
 		/* A rejected key, or an account over its limit, fails on every call.
 		   Ease off rather than spending the whole match retrying. */
 		if (consecutiveFails >= kBackoffAfter)
-			SDL_Delay(kBackoffMs);
+			Backoff(kBackoffMs);
 	}
 
 	curl_slist_free_all(headers);
