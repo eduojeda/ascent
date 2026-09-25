@@ -15,7 +15,6 @@ void RightShipBoundsCheck(SpritePtr ship);
 /*Globals*/
 
 extern Globals		g;
-extern Controls		RSKeys;
 Boolean				spaceIsUp, commandIsUp, optionIsUp;
 
 /*Code*/
@@ -46,14 +45,12 @@ pascal void HandleShipRight(SpritePtr rightShip)
 {
 double			varSpeedX, varSpeedY, viscosityX, viscosityY;
 static short 	counter = 0, sign, faceIndex, faceCounter = 0;
-KeyMap			theKeys;
 SpritePtr		debris;
 	
 	switch(rightShip->mode)
 	{
 		case kShipAliveMode:
 		
-			GetKeys(theKeys);
 				
 			rightShip->pos.h += rightShip->speed.h;
 			rightShip->pos.v += rightShip->speed.v;	
@@ -86,39 +83,39 @@ SpritePtr		debris;
 			}	
 				
 			//Key Controls
-			if ((BitTst(&theKeys, RSKeys.left)) && (rightShip->force.h > -g.rightShipMaxForce))
+			if ((gRightInput.left) && (rightShip->force.h > -g.rightShipMaxForce))
 			{
 				rightShip->force.h -= kShipFwPower;
-			}else if(!BitTst(&theKeys, RSKeys.left) && (rightShip->force.h < 0))
+			}else if(!gRightInput.left && (rightShip->force.h < 0))
 			{
 				rightShip->force.h += kShipBwPower;	
 			}	
 			
-			if ((BitTst(&theKeys, RSKeys.right)) && (rightShip->force.h < g.rightShipMaxForce))
+			if ((gRightInput.right) && (rightShip->force.h < g.rightShipMaxForce))
 			{
 				rightShip->force.h += kShipFwPower;
-			}else if(!BitTst(&theKeys, RSKeys.right) && (rightShip->force.h > 0))
+			}else if(!gRightInput.right && (rightShip->force.h > 0))
 			{
 				rightShip->force.h -= kShipBwPower;	
 			}	
 		
-			if ((BitTst(&theKeys, RSKeys.up)) && (rightShip->force.v > -g.rightShipMaxForce))
+			if ((gRightInput.up) && (rightShip->force.v > -g.rightShipMaxForce))
 			{
 				rightShip->force.v -= kShipFwPower;
-			}else if(!BitTst(&theKeys, RSKeys.up) && (rightShip->force.v < 0))
+			}else if(!gRightInput.up && (rightShip->force.v < 0))
 			{
 				rightShip->force.v += kShipBwPower;	
 			}	
 			
-			if ((BitTst(&theKeys, RSKeys.down)) && (rightShip->force.v < g.rightShipMaxForce))
+			if ((gRightInput.down) && (rightShip->force.v < g.rightShipMaxForce))
 			{
 				rightShip->force.v += kShipFwPower;
-			}else if(!BitTst(&theKeys, RSKeys.down) && (rightShip->force.v > 0))
+			}else if(!gRightInput.down && (rightShip->force.v > 0))
 			{
 				rightShip->force.v -= kShipBwPower;	
 			}	
 				
-			if (BitTst(&theKeys, RSKeys.shoot) && spaceIsUp)
+			if (gRightInput.shoot && spaceIsUp)
 			{
 				spaceIsUp = false;
 				if(g.ball != nil && (g.ball->mode == kBallCaughtMode) && (g.ball->who == rightShip))
@@ -130,12 +127,12 @@ SpritePtr		debris;
 				{
 					ShootBullet(rightShip);
 				}	
-			}else if(!BitTst(&theKeys, RSKeys.shoot))
+			}else if(!gRightInput.shoot)
 			{
 				spaceIsUp = true;	
 			}
 			
-			if ((BitTst(&theKeys, RSKeys.special)) && optionIsUp)
+			if ((gRightInput.special) && optionIsUp)
 			{	
 				optionIsUp = false;
 				if(rightShip->powerup == 0 && g.dirtyWordsMode)
@@ -146,16 +143,16 @@ SpritePtr		debris;
 				{
 					ActivatePowerup(rightShip);
 				}	
-			}else if(!BitTst(&theKeys, RSKeys.special))		
+			}else if(!gRightInput.special)		
 			{
 				optionIsUp = true;	
 			}
 						
-			if (BitTst(&theKeys, RSKeys.rotate) && commandIsUp)
+			if (gRightInput.rotate && commandIsUp)
 			{
 				commandIsUp = false;
 				rightShip->mode = kShipRotatingMode;
-			}else if(!BitTst(&theKeys, RSKeys.rotate))
+			}else if(!gRightInput.rotate)
 			{
 				commandIsUp = true;	
 			}	

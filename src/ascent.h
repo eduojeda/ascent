@@ -230,6 +230,17 @@ typedef struct Controls
 	int up, down, left, right, shoot, special, rotate;
 }Controls;
 
+/*One frame's worth of control for one ship. The 2002 ship tasks read the
+  keyboard directly; they now read this instead, so a ship can be driven by
+  something other than a person without touching the flight model.*/
+
+typedef struct ShipInput
+{
+	Boolean up, down, left, right, shoot, special, rotate;
+}ShipInput;
+
+extern ShipInput	gLeftInput, gRightInput;
+
 /*App Function Prototypes*/
 /*(The Classic event-loop prototypes lived here; the SDL port keeps its
   entry points static in main.c.)*/

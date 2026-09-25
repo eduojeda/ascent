@@ -64,6 +64,42 @@ Settings and key bindings persist in
 `~/Library/Application Support/Ascent/prefs.txt` on macOS and
 `%APPDATA%\Ascent\prefs.txt` on Windows.
 
+## Playing on your own
+
+Tick **Red: computer** in Settings and the red ship plays itself, so the
+blue keys are enough for a match. The computer player is in two halves.
+
+A tactic says what to be doing for the next second or so: chase the loose
+ball, run it at the goal, chase down whoever is carrying it, line up a
+shot, fetch the powerup, fall back, or break away. Underneath it, code
+running every frame flies the ship, holds the height a throw needs, and
+picks the frame to let go on. That split exists because the game runs a
+frame every 16ms and a ship crosses six pixels in that time, which is far
+quicker than anything can be asked.
+
+The tactic comes from [Jev](https://typesafe.ai), TypeSafe's System One
+model, which answers a typed question about the game state in roughly
+200ms rather than returning text. Set `TYPESAFE_API_KEY` and the game
+asks it about six times a second on a background thread, sending the
+positions, speeds, shields, scores and ball state as JSON and getting
+back a tactic with a confidence, plus two yes/no probabilities for
+whether to shoot and whether to spend the powerup. A tactic the model is
+less than 35% sure of is ignored. At that rate a match costs well under a
+penny.
+
+With no key set, no network, or an answer that does not arrive, the same
+tactics are chosen by a short scripted rule instead and the match plays
+on identically. Worth saying plainly: the scripted version scores about
+as often. The model is the interesting part, not the stronger part.
+
+`ASCENT_JEV_MODEL` pins a model version, which is worth doing before
+tuning anything, since the default alias changes answers over time.
+`ASCENT_BOT_DEBUG=1` logs a line a second, and adding `ASCENT_BOT_TRACE=1`
+logs every frame of a run at the goal.
+
+The Windows build has no HTTP client compiled in, so the computer player
+there always uses the scripted tactics.
+
 ## Build and run
 
 ```sh
@@ -76,7 +112,9 @@ make dist-windows # zips it as Ascent-<version>-Windows.zip for a release
 ```
 
 `make` is the quick local build: host architecture, linked against
-Homebrew's SDL.
+Homebrew's SDL. The macOS targets also link libcurl, for the computer
+player's calls to Jev; it ships with macOS, so there is nothing to
+install.
 
 `make bundle` builds the version to give to other people. It is universal
 (Apple Silicon and Intel), targets macOS 11 and up, and carries SDL

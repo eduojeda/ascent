@@ -15,7 +15,6 @@ void LeftShipBoundsCheck(SpritePtr ship);
 /*Globals*/
 
 extern Globals		g;
-extern Controls		LSKeys;
 Boolean				controlIsUp, shiftIsUp, tabIsUp;	//Indicates if the key was pressed down or not the previous frame
 
 /*Code*/
@@ -48,14 +47,12 @@ double			varSpeedX, varSpeedY, 				//variation of speed
 				viscosityX, viscosityY;				//viscosity of the medium adjusted to the speed of the ship (higher speed, higher viscosity force)
 static short 	faceCounter = 0, counter = 0,
 				sign, faceIndex;
-KeyMap			theKeys;	
 SpritePtr		debris;
 
 	switch(leftShip->mode)
 	{
 		case kShipAliveMode:
 	
-			GetKeys(theKeys);
 				
 			leftShip->pos.h += leftShip->speed.h;				//update the mathematical position
 			leftShip->pos.v += leftShip->speed.v;	
@@ -92,39 +89,39 @@ SpritePtr		debris;
 			//Simple algorithm: if the key is pressed and the force is below the g.leftShipMaxForce limit,
 			//rise the engine power in that direction. If the key is not pressed, reduce it
 			
-			if ((BitTst(&theKeys, LSKeys.left)) && (leftShip->force.h > -g.leftShipMaxForce))
+			if ((gLeftInput.left) && (leftShip->force.h > -g.leftShipMaxForce))
 			{
 				leftShip->force.h -= kShipFwPower;
-			}else if(!BitTst(&theKeys, LSKeys.left) && (leftShip->force.h < 0))
+			}else if(!gLeftInput.left && (leftShip->force.h < 0))
 			{
 				leftShip->force.h += kShipBwPower;	
 			}	
 			
-			if ((BitTst(&theKeys, LSKeys.right)) && (leftShip->force.h < g.leftShipMaxForce))
+			if ((gLeftInput.right) && (leftShip->force.h < g.leftShipMaxForce))
 			{
 				leftShip->force.h += kShipFwPower;
-			}else if(!BitTst(&theKeys, LSKeys.right) && (leftShip->force.h > 0))
+			}else if(!gLeftInput.right && (leftShip->force.h > 0))
 			{
 				leftShip->force.h -= kShipBwPower;	
 			}	
 		
-			if ((BitTst(&theKeys, LSKeys.up)) && (leftShip->force.v > -g.leftShipMaxForce))
+			if ((gLeftInput.up) && (leftShip->force.v > -g.leftShipMaxForce))
 			{
 				leftShip->force.v -= kShipFwPower;
-			}else if(!BitTst(&theKeys, LSKeys.up) && (leftShip->force.v < 0))
+			}else if(!gLeftInput.up && (leftShip->force.v < 0))
 			{
 				leftShip->force.v += kShipBwPower;	
 			}	
 			
-			if ((BitTst(&theKeys, LSKeys.down)) && (leftShip->force.v < g.leftShipMaxForce))
+			if ((gLeftInput.down) && (leftShip->force.v < g.leftShipMaxForce))
 			{
 				leftShip->force.v += kShipFwPower;
-			}else if(!BitTst(&theKeys, LSKeys.down) && (leftShip->force.v > 0))
+			}else if(!gLeftInput.down && (leftShip->force.v > 0))
 			{
 				leftShip->force.v -= kShipBwPower;	
 			}	
 			
-			if ((BitTst(&theKeys, LSKeys.shoot)) && controlIsUp)		//Tests if the Control Key is pressed.
+			if ((gLeftInput.shoot) && controlIsUp)		//Tests if the Control Key is pressed.
 			{															//the controlIsUp flag is there to force the user to release the key and press again to trigger the control again
 				controlIsUp = false;
 				if(g.ball != nil && (g.ball->mode == kBallCaughtMode) && (g.ball->who == leftShip))	//the ball is being carried by this ship
@@ -136,12 +133,12 @@ SpritePtr		debris;
 				{
 					ShootBullet(leftShip);
 				}	
-			}else if(!BitTst(&theKeys, LSKeys.shoot))		//if control is not pressed			
+			}else if(!gLeftInput.shoot)		//if control is not pressed			
 			{
 				controlIsUp = true;	
 			}
 			
-			if ((BitTst(&theKeys, LSKeys.special)) && tabIsUp)
+			if ((gLeftInput.special) && tabIsUp)
 			{	
 				tabIsUp = false;
 				if(leftShip->powerup == 0 && g.dirtyWordsMode)
@@ -152,16 +149,16 @@ SpritePtr		debris;
 				{
 					ActivatePowerup(leftShip);
 				}	
-			}else if(!BitTst(&theKeys, LSKeys.special))			//if tab is not pressed			
+			}else if(!gLeftInput.special)			//if tab is not pressed			
 			{
 				tabIsUp = true;	
 			}
 						
-			if (BitTst(&theKeys, LSKeys.rotate) && shiftIsUp)
+			if (gLeftInput.rotate && shiftIsUp)
 			{
 				shiftIsUp = false;
 				leftShip->mode = kShipRotatingMode;			//go into rotation mode
-			}else if(!BitTst(&theKeys, LSKeys.rotate))
+			}else if(!gLeftInput.rotate)
 			{
 				shiftIsUp = true;	
 			}	
