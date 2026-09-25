@@ -51,9 +51,17 @@ static void ReadShipInputs(void);
 
 /*Code*/
 
+/* Silences this run only: the Sound preference is left as the player set it,
+   so a muted launch does not quietly turn their sound off for good. */
+static Boolean gMuted = false;
+
 int main(int argc, char *argv[])
 {
-	(void)argc; (void)argv;
+	for (int i = 1; i < argc; i++)
+		if (!SDL_strcmp(argv[i], "--mute") || !SDL_strcmp(argv[i], "-m"))
+			gMuted = true;
+	if (SDL_getenv("ASCENT_MUTE"))
+		gMuted = SDL_atoi(SDL_getenv("ASCENT_MUTE")) != 0;
 	Initialize();
 	MainEventLoop();
 	CleanUp();
@@ -689,7 +697,7 @@ static void Initialize(void)
 	/*LOAD SOUNDS*/
 	SATSoundInitChannels(6);
 	LoadSounds();
-	if (!gSoundOn)
+	if (!gSoundOn || gMuted)
 		SATSoundOff();
 
 	/*LOAD SPRITE FACES*/
@@ -1010,7 +1018,7 @@ static void DisplaySettingsScreen(void)
 			gRedIsComputer = s_redbot;
 			if (s_sound != gSoundOn) {
 				gSoundOn = s_sound;
-				if (gSoundOn)
+				if (gSoundOn && !gMuted)
 					SATSoundOn();
 				else
 					SATSoundOff();

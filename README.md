@@ -49,6 +49,9 @@ account.
 `P` pauses, `Esc` quits the match, `Cmd+Return` (macOS) or `Alt+Enter`
 (Windows) toggles fullscreen. Keys are rebindable in Settings.
 
+Launching with `--mute` silences a run without touching the Sound
+setting, which is handy when rebuilding and testing repeatedly.
+
 The play area defaults to the largest preset that fits your display
 (800x600 minimum, the 2002 size) and can be changed in Settings.
 
